@@ -5,7 +5,7 @@ import { RoomCard } from '@/components/RoomCard';
 import { RoomFormDialog } from '@/components/RoomFormDialog';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { Button } from '@/components/ui/button';
-import { Plus, Filter } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
