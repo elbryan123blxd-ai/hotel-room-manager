@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Room, ROOM_TYPES, AVAILABLE_FEATURES } from '@/types/room';
+import { Room, ROOM_TYPES } from '@/types/room';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,9 +34,10 @@ interface RoomFormDialogProps {
   onOpenChange: (open: boolean) => void;
   room: Room | null;
   onSave: (room: Omit<Room, 'id'> & { id?: string }) => void;
+  availableFeatures: string[];
 }
 
-export function RoomFormDialog({ open, onOpenChange, room, onSave }: RoomFormDialogProps) {
+export function RoomFormDialog({ open, onOpenChange, room, onSave, availableFeatures }: RoomFormDialogProps) {
   const [name, setName] = useState('');
   const [type, setType] = useState<Room['type']>('Sencilla');
   const [price, setPrice] = useState('');
@@ -142,7 +143,7 @@ export function RoomFormDialog({ open, onOpenChange, room, onSave }: RoomFormDia
           <div className="space-y-2">
             <Label>Características</Label>
             <div className="flex flex-wrap gap-2">
-              {AVAILABLE_FEATURES.map((feature) => (
+              {availableFeatures.map((feature) => (
                 <Badge
                   key={feature}
                   variant={features.includes(feature) ? 'default' : 'outline'}

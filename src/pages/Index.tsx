@@ -1,13 +1,16 @@
 import { useState, useMemo } from 'react';
-import { Room, isRoomAvailable } from '@/types/room';
+import { Room, isRoomAvailable, AVAILABLE_FEATURES } from '@/types/room';
 import { sampleRooms } from '@/data/sampleRooms';
 import { RoomCard } from '@/components/RoomCard';
 import { RoomFormDialog } from '@/components/RoomFormDialog';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import { FeaturesConfig } from '@/components/FeaturesConfig';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Settings, ChevronDown } from 'lucide-react';
 
 type StatusFilter = 'all' | 'available' | 'occupied';
 
@@ -16,6 +19,8 @@ const Index = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [filter, setFilter] = useState<StatusFilter>('all');
+  const [availableFeatures, setAvailableFeatures] = useState<string[]>(AVAILABLE_FEATURES);
+  const [configOpen, setConfigOpen] = useState(false);
   const { toast } = useToast();
 
   const filteredRooms = useMemo(() => {
@@ -131,11 +136,28 @@ const Index = () => {
           )}
         </section>
 
+        {/* Features Config */}
+        <section className="mt-8">
+          <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="gap-2 mb-4 w-full sm:w-auto">
+                <Settings className="h-4 w-4" />
+                Configurar Características
+                <ChevronDown className={`h-4 w-4 transition-transform ${configOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <FeaturesConfig features={availableFeatures} onFeaturesChange={setAvailableFeatures} />
+            </CollapsibleContent>
+          </Collapsible>
+        </section>
+
         <RoomFormDialog
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           room={editingRoom}
           onSave={handleSave}
+          availableFeatures={availableFeatures}
         />
       </div>
     </div>
