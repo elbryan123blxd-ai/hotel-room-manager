@@ -41,6 +41,24 @@ const Index = () => {
     });
   };
 
+  const handleToggleStatus = (id: string) => {
+    setRooms((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const available = !r.occupancyStart || new Date() < new Date(r.occupancyStart) || new Date() > new Date(r.occupancyEnd!);
+        if (available) {
+          // Mark as occupied (today + 7 days)
+          const start = new Date().toISOString().split('T')[0];
+          const end = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+          return { ...r, occupancyStart: start, occupancyEnd: end };
+        } else {
+          // Mark as available
+          return { ...r, occupancyStart: null, occupancyEnd: null };
+        }
+      })
+    );
+  };
+
   const handleNewRoom = () => {
     setEditingRoom(null);
     setDialogOpen(true);
@@ -76,7 +94,7 @@ const Index = () => {
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {rooms.map((room) => (
-                <RoomCard key={room.id} room={room} onEdit={handleEdit} onDelete={handleDelete} />
+                <RoomCard key={room.id} room={room} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={handleToggleStatus} />
               ))}
             </div>
           )}
