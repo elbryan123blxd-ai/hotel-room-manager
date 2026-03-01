@@ -2,7 +2,7 @@ import { Room, isRoomAvailable } from '@/types/room';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Pencil, Trash2, CalendarDays, DollarSign, Bed } from 'lucide-react';
+import { Pencil, Trash2, CalendarDays, DollarSign, ToggleLeft, ToggleRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -10,6 +10,7 @@ interface RoomCardProps {
   room: Room;
   onEdit: (room: Room) => void;
   onDelete: (id: string) => void;
+  onToggleStatus: (id: string) => void;
 }
 
 const typeIcons: Record<Room['type'], string> = {
@@ -18,7 +19,7 @@ const typeIcons: Record<Room['type'], string> = {
   Sencilla: '🛌',
 };
 
-export function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
+export function RoomCard({ room, onEdit, onDelete, onToggleStatus }: RoomCardProps) {
   const available = isRoomAvailable(room);
 
   return (
@@ -44,14 +45,19 @@ export function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
             </Badge>
           </div>
           <Badge
-            className={`text-xs font-semibold ${
+            className={`text-xs font-semibold cursor-pointer transition-colors ${
               available
-                ? 'bg-success/10 text-success border-success/20'
-                : 'bg-destructive/10 text-destructive border-destructive/20'
+                ? 'bg-success/10 text-success border-success/20 hover:bg-success/20'
+                : 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20'
             }`}
             variant="outline"
+            onClick={() => onToggleStatus(room.id)}
           >
-            {available ? 'Disponible' : 'Ocupado'}
+            {available ? (
+              <><ToggleRight className="h-3.5 w-3.5 mr-1" /> Disponible</>
+            ) : (
+              <><ToggleLeft className="h-3.5 w-3.5 mr-1" /> Ocupado</>
+            )}
           </Badge>
         </div>
       </CardHeader>
