@@ -57,30 +57,24 @@ export function DashboardHeader({ rooms }: DashboardHeaderProps) {
         ))}
       </div>
 
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <h3 className="text-sm font-semibold text-muted-foreground px-4 pt-4 pb-2">Mapa de Cuartos</h3>
-        <Table>
-          <TableBody>
-            {rows.map((row, ri) => (
-              <TableRow key={ri} className="border-border">
-                {row.map((name, ci) => (
-                  <TableCell
-                    key={ci}
-                    className={`text-center text-sm font-medium p-2 ${
-                      name
-                        ? rooms.find((r) => r.name === name) && isRoomAvailable(rooms.find((r) => r.name === name)!)
-                          ? 'text-success'
-                          : 'text-destructive'
-                        : 'text-muted-foreground/30'
-                    }`}
-                  >
-                    {name || '—'}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="rounded-xl bg-card border border-border p-4">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-4">Mapa de Cuartos</h3>
+        <div className="grid grid-cols-8 gap-3">
+          {cells.map((name, i) => (
+            <div
+              key={i}
+              className={`aspect-square flex items-center justify-center rounded-lg text-xs font-semibold border ${
+                name
+                  ? rooms.find((r) => r.name === name) && isRoomAvailable(rooms.find((r) => r.name === name)!)
+                    ? 'bg-success/10 text-success border-success/30'
+                    : 'bg-destructive/10 text-destructive border-destructive/30'
+                  : 'bg-muted/30 text-muted-foreground/20 border-transparent'
+              }`}
+            >
+              {name || '—'}
+            </div>
+          ))}
+        </div>
       </div>
     </header>
   );
