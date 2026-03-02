@@ -71,7 +71,7 @@ export function DashboardHeader({ rooms }: DashboardHeaderProps) {
                   : 'bg-muted/30 text-muted-foreground/20 border-transparent'
               }`}
             >
-              {name || '—'}
+              {name || ''}
             </div>
           ))}
         </div>
