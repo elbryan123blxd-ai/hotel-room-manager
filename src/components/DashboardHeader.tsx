@@ -1,5 +1,6 @@
 import { Hotel, BedDouble, CheckCircle, XCircle } from 'lucide-react';
 import { Room, isRoomAvailable } from '@/types/room';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 
 interface DashboardHeaderProps {
   rooms: Room[];
@@ -14,6 +15,16 @@ export function DashboardHeader({ rooms }: DashboardHeaderProps) {
     { label: 'Disponibles', value: available, icon: CheckCircle, color: 'text-success' },
     { label: 'Ocupados', value: occupied, icon: XCircle, color: 'text-destructive' },
   ];
+
+  // Build 8x8 grid cells from room names
+  const cells: string[] = [];
+  for (let i = 0; i < 64; i++) {
+    cells.push(i < rooms.length ? rooms[i].name : '');
+  }
+  const rows: string[][] = [];
+  for (let r = 0; r < 8; r++) {
+    rows.push(cells.slice(r * 8, r * 8 + 8));
+  }
 
   return (
     <header className="space-y-6">
@@ -44,6 +55,32 @@ export function DashboardHeader({ rooms }: DashboardHeaderProps) {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="rounded-xl bg-card border border-border overflow-hidden">
+        <h3 className="text-sm font-semibold text-muted-foreground px-4 pt-4 pb-2">Mapa de Cuartos</h3>
+        <Table>
+          <TableBody>
+            {rows.map((row, ri) => (
+              <TableRow key={ri} className="border-border">
+                {row.map((name, ci) => (
+                  <TableCell
+                    key={ci}
+                    className={`text-center text-sm font-medium p-2 ${
+                      name
+                        ? rooms.find((r) => r.name === name) && isRoomAvailable(rooms.find((r) => r.name === name)!)
+                          ? 'text-success'
+                          : 'text-destructive'
+                        : 'text-muted-foreground/30'
+                    }`}
+                  >
+                    {name || '—'}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </header>
   );
