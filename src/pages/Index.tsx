@@ -5,12 +5,12 @@ import { RoomCard } from '@/components/RoomCard';
 import { RoomFormDialog } from '@/components/RoomFormDialog';
 import { DashboardHeader } from '@/components/DashboardHeader';
 import { FeaturesConfig } from '@/components/FeaturesConfig';
+import { AppSidebar } from '@/components/AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Settings, ChevronDown } from 'lucide-react';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 type StatusFilter = 'all' | 'available' | 'occupied';
 
@@ -20,7 +20,7 @@ const Index = () => {
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [availableFeatures, setAvailableFeatures] = useState<string[]>(AVAILABLE_FEATURES);
-  const [configOpen, setConfigOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('dashboard');
   const { toast } = useToast();
 
   const filteredRooms = useMemo(() => {
@@ -63,12 +63,10 @@ const Index = () => {
         if (r.id !== id) return r;
         const available = !r.occupancyStart || new Date() < new Date(r.occupancyStart) || new Date() > new Date(r.occupancyEnd!);
         if (available) {
-          // Mark as occupied (today + 7 days)
           const start = new Date().toISOString().split('T')[0];
           const end = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
           return { ...r, occupancyStart: start, occupancyEnd: end };
         } else {
-          // Mark as available
           return { ...r, occupancyStart: null, occupancyEnd: null };
         }
       })
@@ -81,76 +79,89 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <DashboardHeader rooms={rooms} />
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AppSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
 
-        <section className="mt-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <h2 className="font-display text-2xl font-bold text-foreground">Cuartos</h2>
-            <div className="flex items-center gap-3 flex-wrap">
-              <ToggleGroup
-                type="single"
-                value={filter}
-                onValueChange={(v) => v && setFilter(v as StatusFilter)}
-                className="bg-muted rounded-lg p-0.5"
-              >
-                <ToggleGroupItem value="all" className="text-xs px-3 data-[state=on]:bg-card data-[state=on]:shadow-sm rounded-md">
-                  Todos
-                </ToggleGroupItem>
-                <ToggleGroupItem value="available" className="text-xs px-3 data-[state=on]:bg-success/15 data-[state=on]:text-success data-[state=on]:shadow-sm rounded-md">
-                  Disponibles
-                </ToggleGroupItem>
-                <ToggleGroupItem value="occupied" className="text-xs px-3 data-[state=on]:bg-destructive/15 data-[state=on]:text-destructive data-[state=on]:shadow-sm rounded-md">
-                  Ocupados
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <Button onClick={handleNewRoom} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                <Plus className="h-4 w-4" />
-                Agregar Cuarto
-              </Button>
-            </div>
-          </div>
+        <div className="flex-1 flex flex-col">
+          <header className="h-12 flex items-center border-b border-border px-4">
+            <SidebarTrigger />
+            <span className="ml-3 text-sm font-medium text-muted-foreground capitalize">
+              {activeSection === 'dashboard' ? 'Dashboard' : activeSection === 'rooms' ? 'Cuartos' : 'Configuración'}
+            </span>
+          </header>
 
-          {filteredRooms.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-16 text-center">
-              <p className="text-lg font-medium text-muted-foreground">
-                {filter === 'all' ? 'No hay cuartos registrados' : `No hay cuartos ${filter === 'available' ? 'disponibles' : 'ocupados'}`}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {filter === 'all' ? 'Comienza agregando tu primer cuarto' : 'Prueba cambiando el filtro'}
-              </p>
-              {filter === 'all' && (
-                <Button onClick={handleNewRoom} className="mt-4 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                  <Plus className="h-4 w-4" />
-                  Agregar Cuarto
-                </Button>
+          <main className="flex-1 bg-background">
+            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+              {/* Dashboard Section */}
+              {activeSection === 'dashboard' && (
+                <DashboardHeader rooms={rooms} />
+              )}
+
+              {/* Rooms Section */}
+              {activeSection === 'rooms' && (
+                <section>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                    <h2 className="font-display text-2xl font-bold text-foreground">Cuartos</h2>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <ToggleGroup
+                        type="single"
+                        value={filter}
+                        onValueChange={(v) => v && setFilter(v as StatusFilter)}
+                        className="bg-muted rounded-lg p-0.5"
+                      >
+                        <ToggleGroupItem value="all" className="text-xs px-3 data-[state=on]:bg-card data-[state=on]:shadow-sm rounded-md">
+                          Todos
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="available" className="text-xs px-3 data-[state=on]:bg-success/15 data-[state=on]:text-success data-[state=on]:shadow-sm rounded-md">
+                          Disponibles
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="occupied" className="text-xs px-3 data-[state=on]:bg-destructive/15 data-[state=on]:text-destructive data-[state=on]:shadow-sm rounded-md">
+                          Ocupados
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                      <Button onClick={handleNewRoom} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+                        <Plus className="h-4 w-4" />
+                        Agregar Cuarto
+                      </Button>
+                    </div>
+                  </div>
+
+                  {filteredRooms.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-16 text-center">
+                      <p className="text-lg font-medium text-muted-foreground">
+                        {filter === 'all' ? 'No hay cuartos registrados' : `No hay cuartos ${filter === 'available' ? 'disponibles' : 'ocupados'}`}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {filter === 'all' ? 'Comienza agregando tu primer cuarto' : 'Prueba cambiando el filtro'}
+                      </p>
+                      {filter === 'all' && (
+                        <Button onClick={handleNewRoom} className="mt-4 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+                          <Plus className="h-4 w-4" />
+                          Agregar Cuarto
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                      {filteredRooms.map((room) => (
+                        <RoomCard key={room.id} room={room} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={handleToggleStatus} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* Config Section */}
+              {activeSection === 'config' && (
+                <section>
+                  <h2 className="font-display text-2xl font-bold text-foreground mb-6">Configuración</h2>
+                  <FeaturesConfig features={availableFeatures} onFeaturesChange={setAvailableFeatures} />
+                </section>
               )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredRooms.map((room) => (
-                <RoomCard key={room.id} room={room} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={handleToggleStatus} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Features Config */}
-        <section className="mt-8">
-          <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="gap-2 mb-4 w-full sm:w-auto">
-                <Settings className="h-4 w-4" />
-                Configurar Características
-                <ChevronDown className={`h-4 w-4 transition-transform ${configOpen ? 'rotate-180' : ''}`} />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <FeaturesConfig features={availableFeatures} onFeaturesChange={setAvailableFeatures} />
-            </CollapsibleContent>
-          </Collapsible>
-        </section>
+          </main>
+        </div>
 
         <RoomFormDialog
           open={dialogOpen}
@@ -160,7 +171,7 @@ const Index = () => {
           availableFeatures={availableFeatures}
         />
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
