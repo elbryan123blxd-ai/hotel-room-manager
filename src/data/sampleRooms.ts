@@ -21,7 +21,7 @@ export const sampleRooms: Room[] = [
   },
   {
     id: '3',
-    name: '301 - Royal',
+    name: '301',
     type: 'Suite',
     pricePerNight: 3200,
     features: ['Wi-Fi', 'Aire Acondicionado', 'Minibar', 'Vista al Mar', 'Jacuzzi', 'Balcón'],
