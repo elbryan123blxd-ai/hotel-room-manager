@@ -84,19 +84,6 @@ export function RoomCard({ room, onEdit, onDelete, onToggleStatus }: RoomCardPro
           </div>
         )}
 
-        {/* Features */}
-        <div className="flex flex-wrap gap-1.5">
-          {room.features.map((feature) => (
-            <Badge
-              key={feature}
-              variant="outline"
-              className="text-xs bg-secondary/50 border-border"
-            >
-              {feature}
-            </Badge>
-          ))}
-        </div>
-
         {/* Actions */}
         <div className="flex gap-2 pt-2 border-t border-border">
           <Button
