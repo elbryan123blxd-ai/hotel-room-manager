@@ -59,7 +59,7 @@ export function DashboardHeader({ rooms }: DashboardHeaderProps) {
 
       <div className="rounded-xl bg-card border border-border p-4">
         <h3 className="text-sm font-semibold text-muted-foreground mb-4">Mapa de Cuartos</h3>
-        <div className="grid grid-cols-8 gap-3">
+        <div className="grid grid-cols-8 gap-2 max-w-md">
           {cells.map((name, i) => (
             <div
               key={i}
