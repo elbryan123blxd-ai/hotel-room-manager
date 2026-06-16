@@ -1,4 +1,4 @@
-import { BedDouble, Settings, LayoutDashboard } from "lucide-react";
+import { BedDouble, Settings, LayoutDashboard, Users, Package } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +13,8 @@ import {
 const sections = [
   { title: "Dashboard", id: "dashboard", icon: LayoutDashboard },
   { title: "Cuartos", id: "rooms", icon: BedDouble },
+  { title: "Clientes", id: "clients", icon: Users },
+  { title: "Inventario", id: "inventory", icon: Package },
   { title: "Configuración", id: "config", icon: Settings },
 ];
 

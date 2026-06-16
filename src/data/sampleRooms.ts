@@ -9,6 +9,8 @@ export const sampleRooms: Room[] = [
     features: ['Wi-Fi', 'Aire Acondicionado', 'TV'],
     occupancyStart: null,
     occupancyEnd: null,
+    floorId: 'f-1',
+    roomNumber: 1,
   },
   {
     id: '2',
@@ -18,6 +20,8 @@ export const sampleRooms: Room[] = [
     features: ['Wi-Fi', 'Aire Acondicionado', 'Minibar', 'Vista al Mar'],
     occupancyStart: '2026-02-28',
     occupancyEnd: '2026-03-05',
+    floorId: 'f-2',
+    roomNumber: 2,
   },
   {
     id: '3',
@@ -27,6 +31,8 @@ export const sampleRooms: Room[] = [
     features: ['Wi-Fi', 'Aire Acondicionado', 'Minibar', 'Vista al Mar', 'Jacuzzi', 'Balcón'],
     occupancyStart: '2026-03-01',
     occupancyEnd: '2026-03-10',
+    floorId: 'f-3',
+    roomNumber: 3,
   },
   {
     id: '4',
@@ -36,6 +42,8 @@ export const sampleRooms: Room[] = [
     features: ['Wi-Fi', 'TV'],
     occupancyStart: '2026-02-20',
     occupancyEnd: '2026-02-25',
+    floorId: 'f-1',
+    roomNumber: 2,
   },
   {
     id: '5',
@@ -45,5 +53,7 @@ export const sampleRooms: Room[] = [
     features: ['Wi-Fi', 'Aire Acondicionado', 'Caja Fuerte'],
     occupancyStart: null,
     occupancyEnd: null,
+    floorId: 'f-2',
+    roomNumber: 3,
   },
 ];
