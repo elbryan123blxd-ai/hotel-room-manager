@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Room, isRoomAvailable, AVAILABLE_FEATURES, Floor, DEFAULT_FLOORS } from '@/types/room';
 import { Client } from '@/types/client';
 import { InventoryItem } from '@/types/inventory';
@@ -6,33 +6,18 @@ import { sampleRooms } from '@/data/sampleRooms';
 import { sampleClients } from '@/data/sampleClients';
 import { sampleInventory } from '@/data/sampleInventory';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { RoomCard } from '@/components/RoomCard';
-import { RoomFormDialog } from '@/components/RoomFormDialog';
-import { ClientCard } from '@/components/ClientCard';
-import { ClientFormDialog } from '@/components/ClientFormDialog';
-import { InventoryCard } from '@/components/InventoryCard';
-import { InventoryFormDialog } from '@/components/InventoryFormDialog';
-import { DashboardHeader } from '@/components/DashboardHeader';
-import { FeaturesConfig } from '@/components/FeaturesConfig';
-import { MapEditor } from '@/components/MapEditor';
-import { FloorsConfig } from '@/components/FloorsConfig';
+import { useToast } from '@/hooks/use-toast';
+import { useTheme } from 'next-themes';
+import { Moon, Sun } from 'lucide-react';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Plus, ArrowUpDown, Download, Search } from 'lucide-react';
-import { downloadCSV } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { Moon, Sun } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DashboardSection } from '@/sections/DashboardSection';
+import { RoomsSection } from '@/sections/RoomsSection';
+import { ClientsSection } from '@/sections/ClientsSection';
+import { InventorySection } from '@/sections/InventorySection';
+import { ConfigSection } from '@/sections/ConfigSection';
 
 type StatusFilter = 'all' | 'available' | 'occupied';
 
@@ -60,9 +45,10 @@ const Index = () => {
   const { theme, setTheme } = useTheme();
   const [inventoryDialogOpen, setInventoryDialogOpen] = useState(false);
   const [editingInventory, setEditingInventory] = useState<InventoryItem | null>(null);
-
   const [roomSearch, setRoomSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'room' | 'client' | 'inventory'; id: string; name: string } | null>(null);
 
   const { toast } = useToast();
 
@@ -88,7 +74,6 @@ const Index = () => {
     return result;
   }, [rooms, filter, sortBy, roomSearch, typeFilter]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
@@ -125,13 +110,23 @@ const Index = () => {
 
   const handleDelete = (id: string) => {
     const room = rooms.find((r) => r.id === id);
-    setRooms((prev) => prev.filter((r) => r.id !== id));
-    toast({
-      title: 'Cuarto eliminado',
-      description: `"${room?.name}" se ha eliminado del inventario.`,
-      variant: 'destructive',
-    });
+    setConfirmDelete({ type: 'room', id, name: room?.name ?? '' });
   };
+
+  const executeDelete = useCallback(() => {
+    if (!confirmDelete) return;
+    if (confirmDelete.type === 'room') {
+      setRooms((prev) => prev.filter((r) => r.id !== confirmDelete.id));
+      toast({ title: 'Cuarto eliminado', description: `"${confirmDelete.name}" se ha eliminado.`, variant: 'destructive' });
+    } else if (confirmDelete.type === 'client') {
+      setClients((prev) => prev.filter((c) => c.id !== confirmDelete.id));
+      toast({ title: 'Cliente eliminado', description: `"${confirmDelete.name}" se ha eliminado.`, variant: 'destructive' });
+    } else if (confirmDelete.type === 'inventory') {
+      setInventory((prev) => prev.filter((i) => i.id !== confirmDelete.id));
+      toast({ title: 'Artículo eliminado', description: `"${confirmDelete.name}" se ha eliminado.`, variant: 'destructive' });
+    }
+    setConfirmDelete(null);
+  }, [confirmDelete, setRooms, setClients, setInventory, toast]);
 
   const handleToggleStatus = (id: string) => {
     setRooms((prev) =>
@@ -140,7 +135,7 @@ const Index = () => {
         const available = !r.occupancyStart || new Date() < new Date(r.occupancyStart) || new Date() > new Date(r.occupancyEnd!);
         if (available) {
           const start = new Date().toISOString().split('T')[0];
-          const end = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+          const end = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
           return { ...r, occupancyStart: start, occupancyEnd: end };
         } else {
           return { ...r, occupancyStart: null, occupancyEnd: null };
@@ -150,6 +145,9 @@ const Index = () => {
   };
 
   const handleSaveClient = (data: Omit<Client, 'id'> & { id?: string }) => {
+    const prevRoomId = data.id ? clients.find((c) => c.id === data.id)?.assignedRoomId : null;
+    const newRoomId = data.assignedRoomId;
+
     if (data.id) {
       setClients((prev) => prev.map((c) => (c.id === data.id ? { ...c, ...data } as Client : c)));
       toast({ title: 'Cliente actualizado', description: `"${data.name}" se ha editado correctamente.` });
@@ -157,6 +155,15 @@ const Index = () => {
       const newClient: Client = { ...data, id: crypto.randomUUID() } as Client;
       setClients((prev) => [...prev, newClient]);
       toast({ title: 'Cliente agregado', description: `"${data.name}" se ha registrado correctamente.` });
+    }
+
+    if (newRoomId && newRoomId !== prevRoomId) {
+      const start = new Date().toISOString().split('T')[0];
+      const end = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+      setRooms((prev) => prev.map((r) => r.id === newRoomId ? { ...r, occupancyStart: start, occupancyEnd: end } as Room : r));
+    }
+    if (prevRoomId && newRoomId !== prevRoomId) {
+      setRooms((prev) => prev.map((r) => r.id === prevRoomId ? { ...r, occupancyStart: null, occupancyEnd: null } as Room : r));
     }
     setEditingClient(null);
   };
@@ -168,12 +175,7 @@ const Index = () => {
 
   const handleDeleteClient = (id: string) => {
     const client = clients.find((c) => c.id === id);
-    setClients((prev) => prev.filter((c) => c.id !== id));
-    toast({
-      title: 'Cliente eliminado',
-      description: `"${client?.name}" se ha eliminado.`,
-      variant: 'destructive',
-    });
+    setConfirmDelete({ type: 'client', id, name: client?.name ?? '' });
   };
 
   const handleSaveInventory = (data: Omit<InventoryItem, 'id'> & { id?: string }) => {
@@ -195,12 +197,7 @@ const Index = () => {
 
   const handleDeleteInventory = (id: string) => {
     const item = inventory.find((i) => i.id === id);
-    setInventory((prev) => prev.filter((i) => i.id !== id));
-    toast({
-      title: 'Artículo eliminado',
-      description: `"${item?.name}" se ha eliminado.`,
-      variant: 'destructive',
-    });
+    setConfirmDelete({ type: 'inventory', id, name: item?.name ?? '' });
   };
 
   const lowStockItems = useMemo(() => inventory.filter((i) => i.quantity <= i.minStock && i.quantity > 0), [inventory]);
@@ -211,6 +208,12 @@ const Index = () => {
     setDialogOpen(true);
   };
 
+  const sectionLabel = activeSection === 'dashboard' ? 'Dashboard'
+    : activeSection === 'rooms' ? 'Cuartos'
+    : activeSection === 'clients' ? 'Clientes'
+    : activeSection === 'inventory' ? 'Inventario'
+    : 'Configuración';
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -219,9 +222,7 @@ const Index = () => {
         <div className="flex-1 flex flex-col">
           <header className="h-12 flex items-center border-b border-border px-4">
             <SidebarTrigger />
-            <span className="ml-3 text-sm font-medium text-muted-foreground capitalize">
-              {activeSection === 'dashboard' ? 'Dashboard' : activeSection === 'rooms' ? 'Cuartos' : activeSection === 'clients' ? 'Clientes' : activeSection === 'inventory' ? 'Inventario' : 'Configuración'}
-            </span>
+            <span className="ml-3 text-sm font-medium text-muted-foreground capitalize">{sectionLabel}</span>
             <div className="ml-auto flex items-center gap-2">
               <kbd className="hidden lg:inline-flex text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded gap-1">
                 <span className="font-semibold">Ctrl+1-5</span> navegar
@@ -241,277 +242,90 @@ const Index = () => {
           <main className="flex-1 bg-background">
             <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
               {activeSection === 'dashboard' && (
-                <DashboardHeader rooms={rooms} clients={clients} floors={floors} />
+                <DashboardSection rooms={rooms} clients={clients} floors={floors} />
               )}
 
               {activeSection === 'rooms' && (
-                <section>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                    <h2 className="font-display text-2xl font-bold text-foreground">Cuartos</h2>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="relative w-40">
-                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                        <Input
-                          data-search
-                          placeholder="Buscar cuarto..."
-                          value={roomSearch}
-                          onChange={(e) => setRoomSearch(e.target.value)}
-                          className="pl-7 h-9 text-xs"
-                        />
-                      </div>
-                      <ToggleGroup
-                        type="single"
-                        value={filter}
-                        onValueChange={(v) => v && setFilter(v as StatusFilter)}
-                        className="bg-muted rounded-lg p-0.5"
-                      >
-                        <ToggleGroupItem value="all" className="text-xs px-3 data-[state=on]:bg-foreground/10 data-[state=on]:shadow-sm rounded-md">
-                          Todos
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="available" className="text-xs px-3 data-[state=on]:bg-success/15 data-[state=on]:text-success data-[state=on]:shadow-sm rounded-md">
-                          Disponibles
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="occupied" className="text-xs px-3 data-[state=on]:bg-destructive/15 data-[state=on]:text-destructive data-[state=on]:shadow-sm rounded-md">
-                          Ocupados
-                        </ToggleGroupItem>
-                      </ToggleGroup>
-                      <Select value={typeFilter} onValueChange={setTypeFilter}>
-                        <SelectTrigger className="w-[110px] h-9 text-xs">
-                          <SelectValue placeholder="Tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="Suite">Suite</SelectItem>
-                          <SelectItem value="Doble">Doble</SelectItem>
-                          <SelectItem value="Sencilla">Sencilla</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger className="w-[130px] h-9 text-xs">
-                          <ArrowUpDown className="h-3 w-3 mr-1" />
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="default">Por defecto</SelectItem>
-                          <SelectItem value="price-asc">Menor precio</SelectItem>
-                          <SelectItem value="price-desc">Mayor precio</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => downloadCSV(rooms.map((r) => ({
-                          Nombre: r.name,
-                          Tipo: r.type,
-                          'Precio/Noche': r.pricePerNight,
-                          Características: r.features.join('; '),
-                          'Ocupación Inicio': r.occupancyStart ?? '',
-                          'Ocupación Fin': r.occupancyEnd ?? '',
-                          Disponible: isRoomAvailable(r) ? 'Sí' : 'No',
-                        })), 'cuartos')}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        CSV
-                      </Button>
-                      <Button onClick={handleNewRoom} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Plus className="h-4 w-4" />
-                        Agregar Cuarto
-                      </Button>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Mostrando {filteredRooms.length} de {rooms.length} cuartos
-                  </p>
-
-                  {filteredRooms.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-16 text-center">
-                      <p className="text-lg font-medium text-muted-foreground">
-                        {roomSearch || typeFilter !== 'all'
-                          ? 'No hay cuartos con esos filtros'
-                          : filter === 'all'
-                            ? 'No hay cuartos registrados'
-                            : `No hay cuartos ${filter === 'available' ? 'disponibles' : 'ocupados'}`}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {roomSearch || typeFilter !== 'all' ? 'Prueba cambiando los filtros' : filter === 'all' ? 'Comienza agregando tu primer cuarto' : 'Prueba cambiando el filtro'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                      {filteredRooms.map((room) => (
-                        <RoomCard key={room.id} room={room} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={handleToggleStatus} />
-                      ))}
-                    </div>
-                  )}
-                </section>
+                <RoomsSection
+                  rooms={rooms}
+                  filteredRooms={filteredRooms}
+                  roomSearch={roomSearch}
+                  onRoomSearchChange={setRoomSearch}
+                  filter={filter}
+                  onFilterChange={setFilter}
+                  typeFilter={typeFilter}
+                  onTypeFilterChange={setTypeFilter}
+                  sortBy={sortBy}
+                  onSortByChange={setSortBy}
+                  onNewRoom={handleNewRoom}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggleStatus={handleToggleStatus}
+                  clients={clients}
+                  onEditClient={handleEditClient}
+                  dialogOpen={dialogOpen}
+                  onDialogOpenChange={setDialogOpen}
+                  editingRoom={editingRoom}
+                  onSave={handleSave}
+                  availableFeatures={availableFeatures}
+                />
               )}
 
               {activeSection === 'clients' && (
-                <section>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                    <h2 className="font-display text-2xl font-bold text-foreground">Clientes</h2>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => downloadCSV(clients.map((c) => ({
-                          Nombre: c.name,
-                          Email: c.email,
-                          Teléfono: c.phone,
-                          Documento: c.idNumber,
-                          'Cuarto Asignado': rooms.find((r) => r.id === c.assignedRoomId)?.name ?? '',
-                          'Check-in': c.checkIn ?? '',
-                          'Check-out': c.checkOut ?? '',
-                          Notas: c.notes,
-                        })), 'clientes')}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        CSV
-                      </Button>
-                      <Button onClick={() => { setEditingClient(null); setClientDialogOpen(true); }} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Plus className="h-4 w-4" />
-                        Agregar Cliente
-                      </Button>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Total: {clients.length} clientes
-                  </p>
-
-                  {clients.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-16 text-center">
-                      <p className="text-lg font-medium text-muted-foreground">No hay clientes registrados</p>
-                      <p className="mt-1 text-sm text-muted-foreground">Comienza agregando tu primer cliente</p>
-                      <Button onClick={() => { setEditingClient(null); setClientDialogOpen(true); }} className="mt-4 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Plus className="h-4 w-4" />
-                        Agregar Cliente
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                      {clients.map((client) => (
-                        <ClientCard
-                          key={client.id}
-                          client={client}
-                          assignedRoom={rooms.find((r) => r.id === client.assignedRoomId)}
-                          onEdit={handleEditClient}
-                          onDelete={handleDeleteClient}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  <ClientFormDialog
-                    open={clientDialogOpen}
-                    onOpenChange={setClientDialogOpen}
-                    client={editingClient}
-                    rooms={rooms}
-                    onSave={handleSaveClient}
-                  />
-                </section>
+                <ClientsSection
+                  clients={clients}
+                  rooms={rooms}
+                  onSave={handleSaveClient}
+                  onEdit={handleEditClient}
+                  onDelete={handleDeleteClient}
+                  dialogOpen={clientDialogOpen}
+                  onDialogOpenChange={setClientDialogOpen}
+                  editingClient={editingClient}
+                  onNewClient={() => { setEditingClient(null); setClientDialogOpen(true); }}
+                />
               )}
 
               {activeSection === 'inventory' && (
-                <section>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-3">
-                      <h2 className="font-display text-2xl font-bold text-foreground">Inventario</h2>
-                      {lowStockItems.length > 0 && (
-                        <span className="text-xs bg-warning/15 text-warning border border-warning/30 rounded-full px-2.5 py-0.5 font-medium">
-                          {lowStockItems.length} stock bajo
-                        </span>
-                      )}
-                      {outOfStockItems.length > 0 && (
-                        <span className="text-xs bg-destructive/15 text-destructive border border-destructive/30 rounded-full px-2.5 py-0.5 font-medium">
-                          {outOfStockItems.length} sin stock
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => downloadCSV(inventory.map((i) => ({
-                          Nombre: i.name,
-                          Categoría: i.category,
-                          Cantidad: i.quantity,
-                          'Stock Mínimo': i.minStock,
-                          'Cuarto Asignado': rooms.find((r) => r.id === i.assignedRoomId)?.name ?? 'General',
-                        })), 'inventario')}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        CSV
-                      </Button>
-                      <Button onClick={() => { setEditingInventory(null); setInventoryDialogOpen(true); }} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Plus className="h-4 w-4" />
-                        Agregar Artículo
-                      </Button>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Total: {inventory.length} artículos
-                  </p>
-
-                  {inventory.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border p-16 text-center">
-                      <p className="text-lg font-medium text-muted-foreground">No hay artículos en inventario</p>
-                      <p className="mt-1 text-sm text-muted-foreground">Comienza agregando tu primer artículo</p>
-                      <Button onClick={() => { setEditingInventory(null); setInventoryDialogOpen(true); }} className="mt-4 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
-                        <Plus className="h-4 w-4" />
-                        Agregar Artículo
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                      {inventory.map((item) => (
-                        <InventoryCard
-                          key={item.id}
-                          item={item}
-                          onEdit={handleEditInventory}
-                          onDelete={handleDeleteInventory}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  <InventoryFormDialog
-                    open={inventoryDialogOpen}
-                    onOpenChange={setInventoryDialogOpen}
-                    item={editingInventory}
-                    rooms={rooms}
-                    onSave={handleSaveInventory}
-                  />
-                </section>
+                <InventorySection
+                  inventory={inventory}
+                  onSave={handleSaveInventory}
+                  onEdit={handleEditInventory}
+                  onDelete={handleDeleteInventory}
+                  dialogOpen={inventoryDialogOpen}
+                  onDialogOpenChange={setInventoryDialogOpen}
+                  editingItem={editingInventory}
+                  rooms={rooms}
+                  lowStockItems={lowStockItems}
+                  outOfStockItems={outOfStockItems}
+                  onNewItem={() => { setEditingInventory(null); setInventoryDialogOpen(true); }}
+                />
               )}
 
               {activeSection === 'config' && (
-                <section>
-                  <h2 className="font-display text-2xl font-bold text-foreground mb-6">Configuración</h2>
-                  <div className="space-y-6">
-                    <FeaturesConfig features={availableFeatures} onFeaturesChange={setAvailableFeatures} />
-                    <FloorsConfig floors={floors} onFloorsChange={setFloors} />
-                    <MapEditor rooms={rooms} onRoomsChange={setRooms} floors={floors} availableFeatures={availableFeatures} onDeleteRoom={handleDelete} />
-                  </div>
-                </section>
+                <ConfigSection
+                  availableFeatures={availableFeatures}
+                  onFeaturesChange={setAvailableFeatures}
+                  floors={floors}
+                  onFloorsChange={setFloors}
+                  rooms={rooms}
+                  onRoomsChange={setRooms}
+                  onDeleteRoom={handleDelete}
+                />
               )}
             </div>
           </main>
         </div>
-
-        <RoomFormDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          room={editingRoom}
-          onSave={handleSave}
-          availableFeatures={availableFeatures}
-        />
       </div>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onOpenChange={() => setConfirmDelete(null)}
+        title={confirmDelete?.type === 'room' ? 'Eliminar cuarto' : confirmDelete?.type === 'client' ? 'Eliminar cliente' : 'Eliminar artículo'}
+        description={`¿Estás seguro? Se eliminará "${confirmDelete?.name ?? ''}" permanentemente.`}
+        confirmLabel="Eliminar"
+        destructive
+        onConfirm={executeDelete}
+      />
     </SidebarProvider>
   );
 };

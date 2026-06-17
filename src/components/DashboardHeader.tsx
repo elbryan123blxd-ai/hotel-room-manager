@@ -29,12 +29,12 @@ export function DashboardHeader({ rooms, clients, floors }: DashboardHeaderProps
   }).length;
 
   const stats = [
-    { label: 'Total Cuartos', value: rooms.length, icon: BedDouble, color: 'text-accent' },
-    { label: 'Disponibles', value: available, icon: CheckCircle, color: 'text-success' },
-    { label: 'Ocupados', value: occupied, icon: XCircle, color: 'text-destructive' },
-    { label: 'Ocupación', value: `${occupancyRate}%`, icon: TrendingUp, color: 'text-primary' },
-    { label: 'Ingresos/día', value: `$${dailyRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-accent' },
-    { label: 'Próximos check-ins', value: upcomingCheckIns, icon: CalendarCheck, color: 'text-primary' },
+    { label: 'Total Cuartos', value: rooms.length, icon: BedDouble, color: 'text-accent', progress: rooms.length > 0 ? 1 : 0 },
+    { label: 'Disponibles', value: available, icon: CheckCircle, color: 'text-success', progress: rooms.length > 0 ? available / rooms.length : 0 },
+    { label: 'Ocupados', value: occupied, icon: XCircle, color: 'text-destructive', progress: rooms.length > 0 ? occupied / rooms.length : 0 },
+    { label: 'Ocupación', value: `${occupancyRate}%`, icon: TrendingUp, color: 'text-primary', progress: occupancyRate / 100 },
+    { label: 'Ingresos/día', value: `$${dailyRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-accent', progress: 0 },
+    { label: 'Próximos check-ins', value: upcomingCheckIns, icon: CalendarCheck, color: 'text-primary', progress: 0 },
   ];
 
   const filteredClients = clients.filter((c) =>
@@ -64,13 +64,26 @@ export function DashboardHeader({ rooms, clients, floors }: DashboardHeaderProps
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="flex items-center gap-3 rounded-xl bg-card p-3 shadow-card border border-border"
+            className="flex flex-col rounded-xl bg-card shadow-card border border-border overflow-hidden group hover:shadow-card-hover transition-shadow"
           >
-            <stat.icon className={`h-6 w-6 shrink-0 ${stat.color}`} />
-            <div className="min-w-0">
-              <p className="text-lg font-bold font-display text-foreground truncate">{stat.value}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{stat.label}</p>
+            <div className="flex items-center gap-3 p-3">
+              <stat.icon className={`h-6 w-6 shrink-0 ${stat.color}`} />
+              <div className="min-w-0">
+                <p className="text-lg font-bold font-display text-foreground truncate">{stat.value}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{stat.label}</p>
+              </div>
             </div>
+            {stat.progress > 0 && (
+              <div className="h-1 w-full bg-muted/50">
+                <div
+                  className="h-full rounded-r-full transition-all duration-500 ease-out group-hover:opacity-80"
+                  style={{
+                    width: `${Math.round(stat.progress * 100)}%`,
+                    backgroundColor: `hsl(var(--${stat.color === 'text-accent' ? 'accent' : stat.color === 'text-success' ? 'success' : stat.color === 'text-destructive' ? 'destructive' : 'primary'}))`,
+                  }}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>

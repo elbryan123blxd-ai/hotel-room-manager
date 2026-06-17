@@ -1,16 +1,31 @@
 import { Room, isRoomAvailable } from '@/types/room';
+import { Client } from '@/types/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Pencil, Trash2, CalendarDays, DollarSign, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Pencil, Trash2, CalendarDays, DollarSign, ToggleLeft, ToggleRight, User, Wifi, Dumbbell, Waves, Wine, Tv, House, Wind, Shield, BellRing } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+const featureIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  'Wi-Fi': Wifi,
+  'Aire Acondicionado': Wind,
+  'Vista al Mar': Waves,
+  'Minibar': Wine,
+  'TV': Tv,
+  'Balcón': House,
+  'Jacuzzi': Dumbbell,
+  'Caja Fuerte': Shield,
+  'Servicio a la Habitación': BellRing,
+};
+
 interface RoomCardProps {
   room: Room;
+  clients?: Client[];
   onEdit: (room: Room) => void;
   onDelete: (id: string) => void;
   onToggleStatus: (id: string) => void;
+  onEditClient?: (client: Client) => void;
 }
 
 const typeIcons: Record<Room['type'], string> = {
@@ -19,7 +34,7 @@ const typeIcons: Record<Room['type'], string> = {
   Sencilla: '🛌',
 };
 
-export function RoomCard({ room, onEdit, onDelete, onToggleStatus }: RoomCardProps) {
+export function RoomCard({ room, clients, onEdit, onDelete, onToggleStatus, onEditClient }: RoomCardProps) {
   const available = isRoomAvailable(room);
 
   return (
@@ -83,6 +98,48 @@ export function RoomCard({ room, onEdit, onDelete, onToggleStatus }: RoomCardPro
             </span>
           </div>
         )}
+
+        {/* Features */}
+        {room.features.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {room.features.slice(0, 4).map((feature) => {
+              const Icon = featureIcons[feature];
+              return (
+                <Badge
+                  key={feature}
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0 h-5 gap-1 font-normal"
+                >
+                  {Icon && <Icon className="h-2.5 w-2.5" />}
+                  {feature}
+                </Badge>
+              );
+            })}
+            {room.features.length > 4 && (
+              <span className="text-[10px] text-muted-foreground self-center ml-0.5">
+                +{room.features.length - 4}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Assigned client */}
+        {clients && onEditClient && (() => {
+          const c = clients.find((cl) => cl.assignedRoomId === room.id);
+          if (!c) return null;
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full gap-1.5 text-xs text-muted-foreground hover:text-foreground justify-start px-0 h-auto"
+              onClick={() => onEditClient(c)}
+            >
+              <User className="h-3 w-3" />
+              <span className="truncate">{c.name}</span>
+              <span className="text-[10px] text-muted-foreground ml-auto">Editar cliente</span>
+            </Button>
+          );
+        })()}
 
         {/* Actions */}
         <div className="flex gap-2 pt-2 border-t border-border">

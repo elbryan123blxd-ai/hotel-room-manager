@@ -9,6 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 const sections = [
   { title: "Dashboard", id: "dashboard", icon: LayoutDashboard },
@@ -37,7 +38,14 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
                     isActive={activeSection === item.id}
                     onClick={() => onSectionChange(item.id)}
                     tooltip={item.title}
+                    className={cn(
+                      "relative",
+                      activeSection === item.id && "bg-sidebar-accent/80 text-sidebar-accent-foreground font-medium"
+                    )}
                   >
+                    {activeSection === item.id && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r-full bg-sidebar-primary" />
+                    )}
                     <item.icon className="h-4 w-4" />
                     <span>{item.title}</span>
                   </SidebarMenuButton>

@@ -1,4 +1,5 @@
 import { InventoryItem } from '@/types/inventory';
+import { Room } from '@/types/room';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -6,11 +7,12 @@ import { Pencil, Trash2, Package, AlertTriangle } from 'lucide-react';
 
 interface InventoryCardProps {
   item: InventoryItem;
+  rooms?: Room[];
   onEdit: (item: InventoryItem) => void;
   onDelete: (id: string) => void;
 }
 
-export function InventoryCard({ item, onEdit, onDelete }: InventoryCardProps) {
+export function InventoryCard({ item, rooms, onEdit, onDelete }: InventoryCardProps) {
   const isLowStock = item.quantity <= item.minStock;
   const isOutOfStock = item.quantity === 0;
 
@@ -61,7 +63,7 @@ export function InventoryCard({ item, onEdit, onDelete }: InventoryCardProps) {
           <span className="text-sm text-muted-foreground">unidades</span>
           {item.assignedRoomId && (
             <span className="text-xs text-muted-foreground ml-auto">
-              Cuarto {item.assignedRoomId}
+              {rooms ? `Cuarto ${rooms.find((r) => r.id === item.assignedRoomId)?.name ?? item.assignedRoomId}` : `Cuarto ${item.assignedRoomId}`}
             </span>
           )}
         </div>
