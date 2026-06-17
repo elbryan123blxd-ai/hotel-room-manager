@@ -1,5 +1,5 @@
+import { useState, useMemo } from 'react';
 import { Room, isRoomAvailable } from '@/types/room';
-import { Client } from '@/types/client';
 import { RoomCard } from '@/components/RoomCard';
 import { RoomFormDialog } from '@/components/RoomFormDialog';
 import { Button } from '@/components/ui/button';
@@ -14,34 +14,65 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useHotel } from '@/contexts/HotelContext';
+import type { RoomFormData } from '@/types/room';
+import { usePagination, PaginationControls } from '@/hooks/use-pagination';
 
 type StatusFilter = 'all' | 'available' | 'occupied';
 
-interface RoomsSectionProps {
-  rooms: Room[];
-  filteredRooms: Room[];
-  roomSearch: string;
-  onRoomSearchChange: (v: string) => void;
-  filter: StatusFilter;
-  onFilterChange: (v: StatusFilter) => void;
-  typeFilter: string;
-  onTypeFilterChange: (v: string) => void;
-  sortBy: string;
-  onSortByChange: (v: string) => void;
-  onNewRoom: () => void;
-  onEdit: (room: Room) => void;
-  onDelete: (id: string) => void;
-  onToggleStatus: (id: string) => void;
-  clients: Client[];
-  onEditClient: (client: Client) => void;
-  dialogOpen: boolean;
-  onDialogOpenChange: (open: boolean) => void;
-  editingRoom: Room | null;
-  onSave: (data: Omit<Room, 'id'> & { id?: string }) => void;
-  availableFeatures: string[];
-}
+export function RoomsSection() {
+  const { rooms, clients, availableFeatures, addRoom, updateRoom, deleteRoom, toggleRoomStatus } = useHotel();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [filter, setFilter] = useState<StatusFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState('default');
+  const [roomSearch, setRoomSearch] = useState('');
 
-export function RoomsSection({ rooms, filteredRooms, roomSearch, onRoomSearchChange, filter, onFilterChange, typeFilter, onTypeFilterChange, sortBy, onSortByChange, onNewRoom, onEdit, onDelete, onToggleStatus, clients, onEditClient, dialogOpen, onDialogOpenChange, editingRoom, onSave, availableFeatures }: RoomsSectionProps) {
+  const filteredRooms = useMemo(() => {
+    let result = rooms;
+    if (filter !== 'all') {
+      result = result.filter((r) =>
+        filter === 'available' ? isRoomAvailable(r) : !isRoomAvailable(r)
+      );
+    }
+    if (typeFilter !== 'all') {
+      result = result.filter((r) => r.type === typeFilter);
+    }
+    if (roomSearch.trim()) {
+      const q = roomSearch.toLowerCase();
+      result = result.filter((r) =>
+        r.name.toLowerCase().includes(q) || r.type.toLowerCase().includes(q)
+      );
+    }
+    if (sortBy === 'price-asc') return [...result].sort((a, b) => a.pricePerNight - b.pricePerNight);
+    if (sortBy === 'price-desc') return [...result].sort((a, b) => b.pricePerNight - a.pricePerNight);
+    if (sortBy === 'name') return [...result].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    return result;
+  }, [rooms, filter, sortBy, roomSearch, typeFilter]);
+
+  const { pageItems, ...pag } = usePagination(filteredRooms);
+
+  const handleEdit = (room: Room) => {
+    setEditingRoom(room);
+    setDialogOpen(true);
+  };
+
+  const handleSave = (data: RoomFormData & { id?: string }) => {
+    if (data.id) {
+      updateRoom(data.id, data);
+    } else {
+      addRoom(data);
+    }
+    setEditingRoom(null);
+    setDialogOpen(false);
+  };
+
+  const handleNewRoom = () => {
+    setEditingRoom(null);
+    setDialogOpen(true);
+  };
+
   return (
     <section key="rooms" className="animate-slide-up">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -53,14 +84,14 @@ export function RoomsSection({ rooms, filteredRooms, roomSearch, onRoomSearchCha
               data-search
               placeholder="Buscar cuarto..."
               value={roomSearch}
-              onChange={(e) => onRoomSearchChange(e.target.value)}
+              onChange={(e) => setRoomSearch(e.target.value)}
               className="pl-7 h-9 text-xs"
             />
           </div>
           <ToggleGroup
             type="single"
             value={filter}
-            onValueChange={(v) => v && onFilterChange(v as StatusFilter)}
+            onValueChange={(v) => v && setFilter(v as StatusFilter)}
             className="bg-muted rounded-lg p-0.5"
           >
             <ToggleGroupItem value="all" className="text-xs px-3 data-[state=on]:bg-foreground/10 data-[state=on]:shadow-sm rounded-md">
@@ -73,7 +104,7 @@ export function RoomsSection({ rooms, filteredRooms, roomSearch, onRoomSearchCha
               Ocupados
             </ToggleGroupItem>
           </ToggleGroup>
-          <Select value={typeFilter} onValueChange={onTypeFilterChange}>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-[110px] h-9 text-xs">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
@@ -84,7 +115,7 @@ export function RoomsSection({ rooms, filteredRooms, roomSearch, onRoomSearchCha
               <SelectItem value="Sencilla">Sencilla</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sortBy} onValueChange={onSortByChange}>
+          <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[130px] h-9 text-xs">
               <ArrowUpDown className="h-3 w-3 mr-1" />
               <SelectValue />
@@ -113,7 +144,7 @@ export function RoomsSection({ rooms, filteredRooms, roomSearch, onRoomSearchCha
             <Download className="h-3.5 w-3.5" />
             CSV
           </Button>
-          <Button onClick={onNewRoom} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleNewRoom} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="h-4 w-4" />
             Agregar Cuarto
           </Button>
@@ -140,33 +171,35 @@ export function RoomsSection({ rooms, filteredRooms, roomSearch, onRoomSearchCha
             {roomSearch || typeFilter !== 'all' ? 'Intenta con otros filtros o términos de búsqueda' : filter === 'all' ? 'Agrega tu primer cuarto para empezar a gestionar' : 'Cambia el filtro para ver otros cuartos'}
           </p>
           {filter === 'all' && !roomSearch && typeFilter === 'all' && (
-            <Button onClick={onNewRoom} className="mt-5 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={handleNewRoom} className="mt-5 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus className="h-4 w-4" />
               Agregar Cuarto
             </Button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredRooms.map((room) => (
-            <RoomCard
-              key={room.id}
-              room={room}
-              clients={clients}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onToggleStatus={onToggleStatus}
-              onEditClient={onEditClient}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {pageItems.map((room) => (
+              <RoomCard
+                key={room.id}
+                room={room}
+                clients={clients}
+                onEdit={handleEdit}
+                onDelete={deleteRoom}
+                onToggleStatus={toggleRoomStatus}
+              />
+            ))}
+          </div>
+          <PaginationControls {...pag} total={filteredRooms.length} />
+        </>
       )}
 
       <RoomFormDialog
         open={dialogOpen}
-        onOpenChange={onDialogOpenChange}
+        onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingRoom(null); }}
         room={editingRoom}
-        onSave={onSave}
+        onSave={handleSave}
         availableFeatures={availableFeatures}
       />
     </section>

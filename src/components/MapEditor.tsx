@@ -1,36 +1,45 @@
-import { useState, useMemo } from 'react';
-import { Room, Floor, findRoomAt } from '@/types/room';
+import { useState } from 'react';
+import { Floor, findRoomAt, isRoomAvailable } from '@/types/room';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Grid3x3 } from 'lucide-react';
 import { RoomCellDialog } from './RoomCellDialog';
+import { useHotel } from '@/contexts/HotelContext';
 
-interface MapEditorProps {
-  rooms: Room[];
-  onRoomsChange: (rooms: Room[]) => void;
-  floors: Floor[];
-  availableFeatures: string[];
-  onDeleteRoom?: (id: string) => void;
-}
-
-export function MapEditor({ rooms, onRoomsChange, floors, availableFeatures, onDeleteRoom }: MapEditorProps) {
-  const [dialog, setDialog] = useState<{ floor: Floor; roomNumber: number } | null>(null);
+export function MapEditor() {
+  const { rooms, floors, updateRoom, deleteRoom } = useHotel();
+  const [dialogData, setDialogData] = useState<{
+    room: ReturnType<typeof findRoomAt> | null;
+    floor: Floor;
+    roomNumber: number;
+    position: string;
+  } | null>(null);
 
   const maxCols = Math.max(1, ...floors.map((f) => f.cantidadCuartos));
 
-  const dialogRoom = useMemo(() => {
-    if (!dialog) return null;
-    return findRoomAt(rooms, dialog.floor.id, dialog.roomNumber) ?? null;
-  }, [rooms, dialog]);
-
-  const handleSave = (data: Omit<Room, 'id'> & { id?: string }) => {
-    if (data.id) {
-      onRoomsChange((prev) => prev.map((r) => (r.id === data.id ? { ...r, ...data } as Room : r)));
-    } else {
-      const newRoom: Room = { ...data, id: crypto.randomUUID() } as Room;
-      onRoomsChange((prev) => [...prev, newRoom]);
-    }
-    setDialog(null);
+  const handleCellClick = (floor: Floor, roomNumber: number) => {
+    const found = findRoomAt(rooms, floor.id, roomNumber) ?? null;
+    const position = `${floor.name} - Nº ${roomNumber}`;
+    setDialogData({ room: found, floor, roomNumber, position });
   };
+
+  const handleAssign = (roomId: string) => {
+    if (!dialogData) return;
+    const existing = findRoomAt(rooms, dialogData.floor.id, dialogData.roomNumber);
+    if (existing && existing.id !== roomId) {
+      updateRoom(existing.id, { floorId: '', roomNumber: 0 });
+    }
+    updateRoom(roomId, { floorId: dialogData.floor.id, roomNumber: dialogData.roomNumber });
+    setDialogData(null);
+  };
+
+  const handleUnassign = (roomId: string) => {
+    updateRoom(roomId, { floorId: '', roomNumber: 0 });
+    setDialogData(null);
+  };
+
+  const totalRooms = rooms.length;
+  const availableCount = rooms.filter(isRoomAvailable).length;
+  const occupiedCount = totalRooms - availableCount;
 
   return (
     <Card className="shadow-card">
@@ -39,8 +48,19 @@ export function MapEditor({ rooms, onRoomsChange, floors, availableFeatures, onD
           <Grid3x3 className="h-5 w-5 text-accent" />
           <CardTitle className="font-display text-xl">Editor del Mapa de Cuartos</CardTitle>
         </div>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>{totalRooms} cuartos</span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-success" />
+            {availableCount} disponibles
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-destructive" />
+            {occupiedCount} ocupados
+          </span>
+        </div>
         <p className="text-sm text-muted-foreground">
-          Haz clic en una celda para configurar el cuarto.
+          Haz clic en una celda vacía para asignarle un cuarto existente. Haz clic en un cuarto asignado para ver sus detalles, desasignarlo o eliminarlo.
         </p>
       </CardHeader>
       <CardContent>
@@ -53,17 +73,20 @@ export function MapEditor({ rooms, onRoomsChange, floors, availableFeatures, onD
                   const isFilled = colIndex < floor.cantidadCuartos;
                   const roomNumber = colIndex + 1;
                   const room = isFilled ? findRoomAt(rooms, floor.id, roomNumber) : undefined;
+                  const available = room ? isRoomAvailable(room) : false;
                   return (
                     <div
                       key={colIndex}
-                      className={`aspect-square flex items-center justify-center rounded text-[10px] font-semibold border transition-all group ${
+                      className={`aspect-square flex items-center justify-center rounded text-[10px] font-semibold border transition-all ${
                         room
-                          ? 'bg-accent/15 text-accent border-accent/30 hover:bg-accent/25 cursor-pointer'
+                          ? available
+                            ? 'bg-success/10 text-success border-success/30 hover:bg-success/20 cursor-pointer'
+                            : 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20 cursor-pointer'
                           : isFilled
-                            ? 'bg-muted/30 text-muted-foreground/30 border-dashed border-muted hover:bg-muted/50 cursor-pointer'
+                            ? 'bg-muted/30 text-muted-foreground/30 border-dashed border-muted-foreground/20 hover:bg-muted/50 cursor-pointer'
                             : 'bg-transparent border-transparent cursor-default'
                       }`}
-                      onClick={() => isFilled && setDialog({ floor, roomNumber })}
+                      onClick={() => isFilled && handleCellClick(floor, roomNumber)}
                     >
                       {room?.name ?? (isFilled ? `${floor.name.slice(-1)}${('0' + roomNumber).slice(-2)}` : '')}
                     </div>
@@ -74,17 +97,16 @@ export function MapEditor({ rooms, onRoomsChange, floors, availableFeatures, onD
           ))}
         </div>
 
-        {dialog && (
+        {dialogData && (
           <RoomCellDialog
-            open={!!dialog}
-            onOpenChange={() => setDialog(null)}
-            room={dialogRoom}
-            onSave={handleSave}
-            onDelete={onDeleteRoom}
-            availableFeatures={availableFeatures}
-            floorId={dialog.floor.id}
-            roomNumber={dialog.roomNumber}
-            suggestedName={`${dialog.floor.name.slice(-1)}${('0' + dialog.roomNumber).slice(-2)}`}
+            open={!!dialogData}
+            onOpenChange={() => setDialogData(null)}
+            room={dialogData.room}
+            onAssign={handleAssign}
+            onUnassign={handleUnassign}
+            onDelete={deleteRoom}
+            allRooms={rooms}
+            position={dialogData.position}
           />
         )}
       </CardContent>

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Room, ROOM_TYPES } from '@/types/room';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Room, ROOM_TYPES, roomSchema, type RoomFormData } from '@/types/room';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
@@ -28,60 +37,50 @@ import { CalendarIcon, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useHotel } from '@/contexts/HotelContext';
 
 interface RoomFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   room: Room | null;
-  onSave: (room: Omit<Room, 'id'> & { id?: string }) => void;
+  onSave: (data: RoomFormData & { id?: string }) => void;
   availableFeatures: string[];
 }
 
 export function RoomFormDialog({ open, onOpenChange, room, onSave, availableFeatures }: RoomFormDialogProps) {
-  const [name, setName] = useState('');
-  const [type, setType] = useState<Room['type']>('Sencilla');
-  const [price, setPrice] = useState('');
-  const [features, setFeatures] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>();
+  const { floors } = useHotel();
 
-  useEffect(() => {
-    if (room) {
-      setName(room.name);
-      setType(room.type);
-      setPrice(room.pricePerNight.toString());
-      setFeatures(room.features);
-      setStartDate(room.occupancyStart ? new Date(room.occupancyStart) : undefined);
-      setEndDate(room.occupancyEnd ? new Date(room.occupancyEnd) : undefined);
-    } else {
-      setName('');
-      setType('Sencilla');
-      setPrice('');
-      setFeatures([]);
-      setStartDate(undefined);
-      setEndDate(undefined);
-    }
-  }, [room, open]);
+  const form = useForm<RoomFormData & { id?: string }>({
+    resolver: zodResolver(roomSchema),
+    defaultValues: {
+      name: '',
+      type: 'Sencilla',
+      pricePerNight: 0,
+      features: [],
+      occupancyStart: null,
+      occupancyEnd: null,
+      floorId: '',
+      roomNumber: 1,
+    },
+    values: room ? {
+      id: room.id,
+      name: room.name,
+      type: room.type,
+      pricePerNight: room.pricePerNight,
+      features: room.features,
+      occupancyStart: room.occupancyStart,
+      occupancyEnd: room.occupancyEnd,
+      floorId: room.floorId || floors[0]?.id || '',
+      roomNumber: room.roomNumber || 1,
+    } : undefined,
+  });
 
-  const toggleFeature = (feature: string) => {
-    setFeatures((prev) =>
-      prev.includes(feature) ? prev.filter((f) => f !== feature) : [...prev, feature]
-    );
-  };
+  const { watch, setValue } = form;
+  const selectedFloorId = watch('floorId');
+  const selectedFloor = floors.find((f) => f.id === selectedFloorId);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !price) return;
-
-    onSave({
-      ...(room ? { id: room.id } : {}),
-      name,
-      type,
-      pricePerNight: parseFloat(price),
-      features,
-      occupancyStart: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-      occupancyEnd: endDate ? format(endDate, 'yyyy-MM-dd') : null,
-    });
+  const handleSubmit = (data: RoomFormData & { id?: string }) => {
+    onSave(data);
     onOpenChange(false);
   };
 
@@ -94,140 +93,213 @@ export function RoomFormDialog({ open, onOpenChange, room, onSave, availableFeat
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="room-name">Nombre o Número</Label>
-            <Input
-              id="room-name"
-              placeholder="Ej: 101, Suite Imperial..."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre o Número</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: 101, Suite Imperial..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          {/* Type */}
-          <div className="space-y-2">
-            <Label>Tipo de Habitación</Label>
-            <Select value={type} onValueChange={(v) => setType(v as Room['type'])}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROOM_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Price */}
-          <div className="space-y-2">
-            <Label htmlFor="room-price">Precio por Noche ($)</Label>
-            <Input
-              id="room-price"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              required
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de Habitación</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {ROOM_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          {/* Features */}
-          <div className="space-y-2">
-            <Label>Características</Label>
-            <div className="flex flex-wrap gap-2">
-              {availableFeatures.map((feature) => (
-                <Badge
-                  key={feature}
-                  variant={features.includes(feature) ? 'default' : 'outline'}
-                  className={cn(
-                    'cursor-pointer transition-all select-none',
-                    features.includes(feature)
-                      ? 'bg-accent text-accent-foreground hover:bg-accent/90'
-                      : 'hover:bg-secondary'
-                  )}
-                  onClick={() => toggleFeature(feature)}
-                >
-                  {feature}
-                  {features.includes(feature) && <X className="ml-1 h-3 w-3" />}
-                </Badge>
-              ))}
-            </div>
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="floorId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Piso</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {floors.map((f) => (
+                          <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-          {/* Occupancy dates */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Fecha Inicio Ocupación</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !startDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, 'dd/MM/yyyy') : 'Seleccionar'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={setStartDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+              <FormField
+                control={form.control}
+                name="roomNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Número de Cuarto</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={selectedFloor?.cantidadCuartos ?? 20}
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label>Fecha Fin Ocupación</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !endDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, 'dd/MM/yyyy') : 'Seleccionar'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={setEndDate}
-                    initialFocus
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
+            <FormField
+              control={form.control}
+              name="pricePerNight"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Precio por Noche ($)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90">
-              {room ? 'Guardar Cambios' : 'Agregar Cuarto'}
-            </Button>
-          </DialogFooter>
-        </form>
+            <FormField
+              control={form.control}
+              name="features"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Características</FormLabel>
+                  <FormControl>
+                    <div className="flex flex-wrap gap-2">
+                      {availableFeatures.map((feature) => (
+                        <Badge
+                          key={feature}
+                          variant={field.value.includes(feature) ? 'default' : 'outline'}
+                          className={cn(
+                            'cursor-pointer transition-all select-none',
+                            field.value.includes(feature)
+                              ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                              : 'hover:bg-secondary'
+                          )}
+                          onClick={() => {
+                            const next = field.value.includes(feature)
+                              ? field.value.filter((f) => f !== feature)
+                              : [...field.value, feature];
+                            field.onChange(next);
+                          }}
+                        >
+                          {feature}
+                          {field.value.includes(feature) && <X className="ml-1 h-3 w-3" />}
+                        </Badge>
+                      ))}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Fecha Inicio Ocupación</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !watch('occupancyStart') && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {watch('occupancyStart') ? format(new Date(watch('occupancyStart')!), 'dd/MM/yyyy') : 'Seleccionar'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={watch('occupancyStart') ? new Date(watch('occupancyStart')!) : undefined}
+                      onSelect={(date) => setValue('occupancyStart', date ? format(date, 'yyyy-MM-dd') : null)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Fecha Fin Ocupación</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !watch('occupancyEnd') && 'text-muted-foreground'
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {watch('occupancyEnd') ? format(new Date(watch('occupancyEnd')!), 'dd/MM/yyyy') : 'Seleccionar'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={watch('occupancyEnd') ? new Date(watch('occupancyEnd')!) : undefined}
+                      onSelect={(date) => setValue('occupancyEnd', date ? format(date, 'yyyy-MM-dd') : null)}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                {room ? 'Guardar Cambios' : 'Agregar Cuarto'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

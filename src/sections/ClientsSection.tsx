@@ -1,24 +1,40 @@
-import { Client } from '@/types/client';
-import { Room } from '@/types/room';
+import { useState } from 'react';
+import type { Client } from '@/types/client';
 import { ClientCard } from '@/components/ClientCard';
 import { ClientFormDialog } from '@/components/ClientFormDialog';
 import { Button } from '@/components/ui/button';
 import { Plus, Download, Users } from 'lucide-react';
 import { downloadCSV } from '@/lib/utils';
+import { useHotel } from '@/contexts/HotelContext';
+import { usePagination, PaginationControls } from '@/hooks/use-pagination';
 
-interface ClientsSectionProps {
-  clients: Client[];
-  rooms: Room[];
-  onSave: (data: Omit<Client, 'id'> & { id?: string }) => void;
-  onEdit: (client: Client) => void;
-  onDelete: (id: string) => void;
-  dialogOpen: boolean;
-  onDialogOpenChange: (open: boolean) => void;
-  editingClient: Client | null;
-  onNewClient: () => void;
-}
+export function ClientsSection() {
+  const { clients, rooms, addClient, updateClient, deleteClient } = useHotel();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
-export function ClientsSection({ clients, rooms, onSave, onEdit, onDelete, dialogOpen, onDialogOpenChange, editingClient, onNewClient }: ClientsSectionProps) {
+  const { pageItems, ...pag } = usePagination(clients, 9);
+
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
+    setDialogOpen(true);
+  };
+
+  const handleSave = (data: Omit<Client, 'id'> & { id?: string }) => {
+    if (data.id) {
+      updateClient(data.id, data);
+    } else {
+      addClient(data);
+    }
+    setEditingClient(null);
+    setDialogOpen(false);
+  };
+
+  const handleNewClient = () => {
+    setEditingClient(null);
+    setDialogOpen(true);
+  };
+
   return (
     <section key="clients" className="animate-slide-up">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -42,7 +58,7 @@ export function ClientsSection({ clients, rooms, onSave, onEdit, onDelete, dialo
             <Download className="h-3.5 w-3.5" />
             CSV
           </Button>
-          <Button onClick={onNewClient} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleNewClient} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="h-4 w-4" />
             Agregar Cliente
           </Button>
@@ -60,31 +76,34 @@ export function ClientsSection({ clients, rooms, onSave, onEdit, onDelete, dialo
           </div>
           <p className="text-lg font-medium text-foreground">No hay clientes registrados</p>
           <p className="mt-1 text-sm text-muted-foreground max-w-xs">Agrega tu primer cliente para llevar el control de hospedajes</p>
-          <Button onClick={onNewClient} className="mt-5 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleNewClient} className="mt-5 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="h-4 w-4" />
             Agregar Cliente
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {clients.map((client) => (
-            <ClientCard
-              key={client.id}
-              client={client}
-              assignedRoom={rooms.find((r) => r.id === client.assignedRoomId)}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {pageItems.map((client) => (
+              <ClientCard
+                key={client.id}
+                client={client}
+                assignedRoom={rooms.find((r) => r.id === client.assignedRoomId)}
+                onEdit={handleEdit}
+                onDelete={deleteClient}
+              />
+            ))}
+          </div>
+          <PaginationControls {...pag} total={clients.length} />
+        </>
       )}
 
       <ClientFormDialog
         open={dialogOpen}
-        onOpenChange={onDialogOpenChange}
+        onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingClient(null); }}
         client={editingClient}
         rooms={rooms}
-        onSave={onSave}
+        onSave={handleSave}
       />
     </section>
   );

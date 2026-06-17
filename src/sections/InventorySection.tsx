@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { InventoryItem, INVENTORY_CATEGORIES } from '@/types/inventory';
-import { Room } from '@/types/room';
+import type { InventoryItem } from '@/types/inventory';
+import { INVENTORY_CATEGORIES } from '@/types/inventory';
 import { InventoryCard } from '@/components/InventoryCard';
 import { InventoryFormDialog } from '@/components/InventoryFormDialog';
 import { Button } from '@/components/ui/button';
@@ -14,22 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useHotel } from '@/contexts/HotelContext';
+import { usePagination, PaginationControls } from '@/hooks/use-pagination';
 
-interface InventorySectionProps {
-  inventory: InventoryItem[];
-  onSave: (data: Omit<InventoryItem, 'id'> & { id?: string }) => void;
-  onEdit: (item: InventoryItem) => void;
-  onDelete: (id: string) => void;
-  dialogOpen: boolean;
-  onDialogOpenChange: (open: boolean) => void;
-  editingItem: InventoryItem | null;
-  rooms: Room[];
-  lowStockItems: InventoryItem[];
-  outOfStockItems: InventoryItem[];
-  onNewItem: () => void;
-}
-
-export function InventorySection({ inventory, onSave, onEdit, onDelete, dialogOpen, onDialogOpenChange, editingItem, rooms, lowStockItems, outOfStockItems, onNewItem }: InventorySectionProps) {
+export function InventorySection() {
+  const { inventory, rooms, addInventoryItem, updateInventoryItem, deleteInventoryItem, lowStockItems, outOfStockItems } = useHotel();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
 
@@ -44,6 +35,28 @@ export function InventorySection({ inventory, onSave, onEdit, onDelete, dialogOp
     }
     return result;
   }, [inventory, search, categoryFilter]);
+
+  const { pageItems, ...pag } = usePagination(filtered);
+
+  const handleEdit = (item: InventoryItem) => {
+    setEditingItem(item);
+    setDialogOpen(true);
+  };
+
+  const handleSave = (data: Omit<InventoryItem, 'id'> & { id?: string }) => {
+    if (data.id) {
+      updateInventoryItem(data.id, data);
+    } else {
+      addInventoryItem(data);
+    }
+    setEditingItem(null);
+    setDialogOpen(false);
+  };
+
+  const handleNewItem = () => {
+    setEditingItem(null);
+    setDialogOpen(true);
+  };
 
   return (
     <section key="inventory" className="animate-slide-up">
@@ -77,7 +90,7 @@ export function InventorySection({ inventory, onSave, onEdit, onDelete, dialogOp
             <Download className="h-3.5 w-3.5" />
             CSV
           </Button>
-          <Button onClick={onNewItem} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleNewItem} className="gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="h-4 w-4" />
             Agregar Artículo
           </Button>
@@ -123,32 +136,35 @@ export function InventorySection({ inventory, onSave, onEdit, onDelete, dialogOp
             {search || categoryFilter !== 'all' ? 'Intenta con otros filtros' : 'Agrega artículos para mantener el control de suministros del hotel'}
           </p>
           {!search && categoryFilter === 'all' && (
-            <Button onClick={onNewItem} className="mt-5 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button onClick={handleNewItem} className="mt-5 gap-2 bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus className="h-4 w-4" />
               Agregar Artículo
             </Button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((item) => (
-            <InventoryCard
-              key={item.id}
-              item={item}
-              rooms={rooms}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {pageItems.map((item) => (
+              <InventoryCard
+                key={item.id}
+                item={item}
+                rooms={rooms}
+                onEdit={handleEdit}
+                onDelete={deleteInventoryItem}
+              />
+            ))}
+          </div>
+          <PaginationControls {...pag} total={filtered.length} />
+        </>
       )}
 
       <InventoryFormDialog
         open={dialogOpen}
-        onOpenChange={onDialogOpenChange}
+        onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingItem(null); }}
         item={editingItem}
         rooms={rooms}
-        onSave={onSave}
+        onSave={handleSave}
       />
     </section>
   );

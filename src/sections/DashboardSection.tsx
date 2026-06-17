@@ -1,14 +1,9 @@
-import { Room, Floor } from '@/types/room';
-import { Client } from '@/types/client';
 import { DashboardHeader } from '@/components/DashboardHeader';
+import { useHotel } from '@/contexts/HotelContext';
 
-interface DashboardSectionProps {
-  rooms: Room[];
-  clients: Client[];
-  floors: Floor[];
-}
+export function DashboardSection() {
+  const { rooms, clients, floors } = useHotel();
 
-export function DashboardSection({ rooms, clients, floors }: DashboardSectionProps) {
   return (
     <div key="dashboard" className="animate-slide-up">
       <DashboardHeader rooms={rooms} clients={clients} floors={floors} />

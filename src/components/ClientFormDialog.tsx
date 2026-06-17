@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Client } from '@/types/client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Client, clientSchema, type ClientFormData } from '@/types/client';
 import { Room } from '@/types/room';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 
 interface ClientFormDialogProps {
   open: boolean;
@@ -29,52 +37,33 @@ interface ClientFormDialogProps {
 }
 
 export function ClientFormDialog({ open, onOpenChange, client, rooms, onSave }: ClientFormDialogProps) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [idNumber, setIdNumber] = useState('');
-  const [assignedRoomId, setAssignedRoomId] = useState<string | null>(null);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [notes, setNotes] = useState('');
+  const form = useForm<ClientFormData & { id?: string }>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '',
+      idNumber: '',
+      assignedRoomId: null,
+      checkIn: null,
+      checkOut: null,
+      notes: '',
+    },
+    values: client ? {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      idNumber: client.idNumber,
+      assignedRoomId: client.assignedRoomId,
+      checkIn: client.checkIn,
+      checkOut: client.checkOut,
+      notes: client.notes,
+    } : undefined,
+  });
 
-  useEffect(() => {
-    if (client) {
-      setName(client.name);
-      setEmail(client.email);
-      setPhone(client.phone);
-      setIdNumber(client.idNumber);
-      setAssignedRoomId(client.assignedRoomId);
-      setCheckIn(client.checkIn || '');
-      setCheckOut(client.checkOut || '');
-      setNotes(client.notes);
-    } else {
-      setName('');
-      setEmail('');
-      setPhone('');
-      setIdNumber('');
-      setAssignedRoomId(null);
-      setCheckIn('');
-      setCheckOut('');
-      setNotes('');
-    }
-  }, [client, open]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !email || !phone) return;
-
-    onSave({
-      ...(client ? { id: client.id } : {}),
-      name,
-      email,
-      phone,
-      idNumber,
-      assignedRoomId,
-      checkIn: checkIn || null,
-      checkOut: checkOut || null,
-      notes,
-    });
+  const handleSubmit = (data: ClientFormData & { id?: string }) => {
+    onSave(data as Omit<Client, 'id'> & { id?: string });
     onOpenChange(false);
   };
 
@@ -87,113 +76,147 @@ export function ClientFormDialog({ open, onOpenChange, client, rooms, onSave }: 
           </DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="client-name">Nombre Completo</Label>
-            <Input
-              id="client-name"
-              placeholder="Ej: María García López"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nombre Completo</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ej: María García López" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="client-email">Email</Label>
-              <Input
-                id="client-email"
-                type="email"
-                placeholder="cliente@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="cliente@email.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teléfono</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+52 55 1234 5678" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="client-phone">Teléfono</Label>
-              <Input
-                id="client-phone"
-                placeholder="+52 55 1234 5678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="client-id">ID / Documento</Label>
-            <Input
-              id="client-id"
-              placeholder="DNI, Pasaporte..."
-              value={idNumber}
-              onChange={(e) => setIdNumber(e.target.value)}
+            <FormField
+              control={form.control}
+              name="idNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>ID / Documento</FormLabel>
+                  <FormControl>
+                    <Input placeholder="DNI, Pasaporte..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label>Asignar a Cuarto</Label>
-            <Select
-              value={assignedRoomId || 'none'}
-              onValueChange={(v) => setAssignedRoomId(v === 'none' ? null : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Sin asignar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin cuarto</SelectItem>
-                {rooms.map((room) => (
-                  <SelectItem key={room.id} value={room.id}>
-                    {room.name} — {room.type} (${room.pricePerNight}/noche)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="client-checkin">Fecha Check-in</Label>
-              <Input
-                id="client-checkin"
-                type="date"
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="client-checkout">Fecha Check-out</Label>
-              <Input
-                id="client-checkout"
-                type="date"
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="client-notes">Notas</Label>
-            <Textarea
-              id="client-notes"
-              placeholder="Preferencias, solicitudes especiales..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
+            <FormField
+              control={form.control}
+              name="assignedRoomId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Asignar a Cuarto</FormLabel>
+                  <Select
+                    value={field.value ?? 'none'}
+                    onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sin asignar" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">Sin cuarto</SelectItem>
+                      {rooms.map((room) => (
+                        <SelectItem key={room.id} value={room.id}>
+                          {room.name} — {room.type} (${room.pricePerNight}/noche)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90">
-              {client ? 'Guardar Cambios' : 'Agregar Cliente'}
-            </Button>
-          </DialogFooter>
-        </form>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="checkIn"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha Check-in</FormLabel>
+                    <FormControl>
+                      <Input type="date" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value || null)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="checkOut"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha Check-out</FormLabel>
+                    <FormControl>
+                      <Input type="date" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value || null)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notas</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Preferencias, solicitudes especiales..." rows={2} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90">
+                {client ? 'Guardar Cambios' : 'Agregar Cliente'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
