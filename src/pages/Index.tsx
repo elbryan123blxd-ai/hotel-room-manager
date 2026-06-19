@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { HotelProvider } from '@/contexts/HotelContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { DashboardSection } from '@/sections/DashboardSection';
 import { RoomsSection } from '@/sections/RoomsSection';
 import { ClientsSection } from '@/sections/ClientsSection';
 import { InventorySection } from '@/sections/InventorySection';
 import { ConfigSection } from '@/sections/ConfigSection';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 const sections = [
@@ -22,6 +24,8 @@ const sections = [
 function IndexContent() {
   const [activeSection, setActiveSection] = useState('dashboard');
   const { theme, setTheme } = useTheme();
+  const { logout, user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -58,15 +62,16 @@ function IndexContent() {
               <kbd className="hidden lg:inline-flex text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded gap-1">
                 <span className="font-semibold">Ctrl+1-5</span> navegar
               </kbd>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="h-8 w-8 rounded-full"
-              >
+              <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="h-8 w-8 rounded-full">
                 <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                 <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
               </Button>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="hidden sm:inline">{user?.email}</span>
+                <Button variant="ghost" size="icon" onClick={() => { logout(); navigate('/login'); }} className="h-8 w-8 rounded-full" title="Cerrar sesión">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </header>
 
