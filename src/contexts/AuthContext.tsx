@@ -4,11 +4,12 @@ import type { User, Session } from '@supabase/supabase-js'
 
 export interface Profile {
   id: string
+  auth_user_id: string
+  hotel_id: string
+  nombre: string
   email: string | null
-  full_name: string
-  avatar_url: string
-  created_at: string
-  updated_at: string
+  rol: string
+  activo: boolean
 }
 
 interface AuthContextValue {
@@ -26,9 +27,9 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
-    .from('profiles')
+    .from('usuarios')
     .select('*')
-    .eq('id', userId)
+    .eq('auth_user_id', userId)
     .single()
   return data
 }

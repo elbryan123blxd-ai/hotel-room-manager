@@ -90,6 +90,9 @@ export function HotelProvider({ children }: { children: ReactNode }) {
             rol: 'admin',
           });
           setHotelId(newHotel.id);
+
+          // Seed sample data for the new hotel
+          await supabase.rpc('seed_hotel_data', { p_hotel_id: newHotel.id });
         }
       } else {
         setHotelId(usuario.hotel_id);
