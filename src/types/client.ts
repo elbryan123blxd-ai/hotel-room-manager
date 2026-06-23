@@ -15,7 +15,7 @@ export interface Client {
 export const clientSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'El nombre es obligatorio'),
-  email: z.string().email('Email inválido'),
+  email: z.string().email('Email inválido').optional().or(z.literal('')),
   phone: z.string().min(1, 'El teléfono es obligatorio'),
   idNumber: z.string(),
   assignedRoomId: z.string().nullable().optional(),

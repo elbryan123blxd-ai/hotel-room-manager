@@ -1,20 +1,109 @@
 import { useState } from 'react';
 import {
   Hotel, BedDouble, CheckCircle, XCircle, Search, User,
-  TrendingUp, CalendarCheck, DollarSign,
+  TrendingUp, CalendarCheck, DollarSign, GripVertical,
 } from 'lucide-react';
 import { Room, isRoomAvailable, Floor, findRoomAt } from '@/types/room';
 import { Client } from '@/types/client';
 import { Input } from '@/components/ui/input';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 
 interface DashboardHeaderProps {
   rooms: Room[];
   clients: Client[];
   floors: Floor[];
+  onAssignClient: (clientId: string, roomId: string | null) => void;
 }
 
-export function DashboardHeader({ rooms, clients, floors }: DashboardHeaderProps) {
+function DraggableClient({ client, rooms }: { client: Client; rooms: Room[] }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: client.id,
+    data: { client },
+  });
+
+  const assignedRoom = client.assignedRoomId ? rooms.find(r => r.id === client.assignedRoomId) : null;
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: isDragging ? 50 : 'auto',
+  } : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 hover:bg-muted/60 transition-colors cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-50 shadow-lg' : ''}`}
+      {...listeners}
+      {...attributes}
+    >
+      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+        <User className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
+        <p className="text-xs text-muted-foreground">
+          {assignedRoom ? `Cuarto: ${assignedRoom.name}` : client.idNumber}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DroppableRoom({ room, isAvailable, children }: { room: Room; isAvailable: boolean; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: room.id,
+    data: { room },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`aspect-square flex items-center justify-center rounded text-[10px] font-semibold border transition-all ${
+        isOver ? 'ring-2 ring-accent scale-105' : ''
+      } ${
+        room
+          ? isAvailable
+            ? 'bg-success/10 text-success border-success/30'
+            : 'bg-destructive/10 text-destructive border-destructive/30'
+          : 'bg-muted/30 text-muted-foreground/20 border-transparent'
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function DashboardHeader({ rooms, clients, floors, onAssignClient }: DashboardHeaderProps) {
   const [search, setSearch] = useState('');
+  const [activeClient, setActiveClient] = useState<Client | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const client = active.data.current?.client as Client;
+    if (client) {
+      setActiveClient(client);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveClient(null);
+
+    if (over) {
+      const clientId = active.id as string;
+      const roomId = over.id as string;
+      onAssignClient(clientId, roomId);
+    }
+  };
 
   const available = rooms.filter(isRoomAvailable).length;
   const occupied = rooms.length - available;
@@ -89,72 +178,76 @@ export function DashboardHeader({ rooms, clients, floors }: DashboardHeaderProps
       </div>
 
       {/* Clientes + Mapa */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-xl bg-card border border-border p-4">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-3">Listado de Clientes</h3>
-          <div className="relative mb-3">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nombre o DNI..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-9 text-sm"
-            />
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="rounded-xl bg-card border border-border p-4">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3">Listado de Clientes</h3>
+            <div className="relative mb-3">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre o DNI..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {filteredClients.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No se encontraron clientes</p>
+              ) : (
+                filteredClients.map((client) => (
+                  <DraggableClient key={client.id} client={client} rooms={rooms} />
+                ))
+              )}
+            </div>
           </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-            {filteredClients.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No se encontraron clientes</p>
-            ) : (
-              filteredClients.map((client) => (
-                <div
-                  key={client.id}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-2.5 hover:bg-muted/60 transition-colors"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-                    <User className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{client.name}</p>
-                    <p className="text-xs text-muted-foreground">{client.idNumber}</p>
+
+          <div className="rounded-xl bg-card border border-border p-4">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-4">Mapa de Cuartos</h3>
+            <div className="space-y-2">
+              {floors.map((floor) => (
+                <div key={floor.id} className="flex items-center gap-2">
+                  <span className="text-[10px] font-medium text-muted-foreground w-14 shrink-0 text-right leading-tight">{floor.name}</span>
+                  <div className="grid gap-1.5 flex-1" style={{ gridTemplateColumns: `repeat(${maxCols}, 1fr)` }}>
+                    {Array.from({ length: maxCols }).map((_, colIndex) => {
+                      const isFilled = colIndex < floor.cantidadCuartos;
+                      const roomNumber = colIndex + 1;
+                      const room = isFilled ? findRoomAt(rooms, floor.id, roomNumber) : undefined;
+                      if (!room) {
+                        return (
+                          <div
+                            key={colIndex}
+                            className="aspect-square flex items-center justify-center rounded text-[10px] font-semibold border bg-muted/30 text-muted-foreground/20 border-transparent"
+                          />
+                        );
+                      }
+                      return (
+                        <DroppableRoom key={colIndex} room={room} isAvailable={isRoomAvailable(room)}>
+                          {room.name}
+                        </DroppableRoom>
+                      );
+                    })}
                   </div>
                 </div>
-              ))
-            )}
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="rounded-xl bg-card border border-border p-4">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-4">Mapa de Cuartos</h3>
-          <div className="space-y-2">
-            {floors.map((floor) => (
-              <div key={floor.id} className="flex items-center gap-2">
-                <span className="text-[10px] font-medium text-muted-foreground w-14 shrink-0 text-right leading-tight">{floor.name}</span>
-                <div className="grid gap-1.5 flex-1" style={{ gridTemplateColumns: `repeat(${maxCols}, 1fr)` }}>
-                  {Array.from({ length: maxCols }).map((_, colIndex) => {
-                    const isFilled = colIndex < floor.cantidadCuartos;
-                    const roomNumber = colIndex + 1;
-                    const room = isFilled ? findRoomAt(rooms, floor.id, roomNumber) : undefined;
-                    return (
-                      <div
-                        key={colIndex}
-                        className={`aspect-square flex items-center justify-center rounded text-[10px] font-semibold border ${
-                          room
-                            ? isRoomAvailable(room)
-                              ? 'bg-success/10 text-success border-success/30'
-                              : 'bg-destructive/10 text-destructive border-destructive/30'
-                            : 'bg-muted/30 text-muted-foreground/20 border-transparent'
-                        }`}
-                      >
-                        {room?.name ?? ''}
-                      </div>
-                    );
-                  })}
-                </div>
+        <DragOverlay>
+          {activeClient ? (
+            <div className="flex items-center gap-3 rounded-lg border border-accent bg-card p-2.5 shadow-lg opacity-90">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                <User className="h-4 w-4" />
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">{activeClient.name}</p>
+                <p className="text-xs text-muted-foreground">{activeClient.idNumber}</p>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </header>
   );
 }

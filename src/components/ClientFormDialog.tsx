@@ -98,7 +98,7 @@ export function ClientFormDialog({ open, onOpenChange, client, rooms, onSave }: 
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Email (opcional)</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="cliente@email.com" {...field} />
                     </FormControl>
@@ -113,7 +113,7 @@ export function ClientFormDialog({ open, onOpenChange, client, rooms, onSave }: 
                   <FormItem>
                     <FormLabel>Teléfono</FormLabel>
                     <FormControl>
-                      <Input placeholder="+52 55 1234 5678" {...field} />
+                      <Input placeholder="999999999" maxLength={9} inputMode="numeric" pattern="[0-9]*" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -126,9 +126,9 @@ export function ClientFormDialog({ open, onOpenChange, client, rooms, onSave }: 
               name="idNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>ID / Documento</FormLabel>
+                  <FormLabel>DNI</FormLabel>
                   <FormControl>
-                    <Input placeholder="DNI, Pasaporte..." {...field} />
+                    <Input placeholder="DNI" maxLength={8} inputMode="numeric" pattern="[0-9]*" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -163,35 +163,6 @@ export function ClientFormDialog({ open, onOpenChange, client, rooms, onSave }: 
                 </FormItem>
               )}
             />
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="checkIn"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha Check-in</FormLabel>
-                    <FormControl>
-                      <Input type="date" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value || null)} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="checkOut"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha Check-out</FormLabel>
-                    <FormControl>
-                      <Input type="date" value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value || null)} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
 
             <FormField
               control={form.control}

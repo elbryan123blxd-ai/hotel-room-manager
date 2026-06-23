@@ -27,17 +27,10 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHotel } from '@/contexts/HotelContext';
+import { useEffect } from 'react';
 
 interface RoomFormDialogProps {
   open: boolean;
@@ -48,18 +41,18 @@ interface RoomFormDialogProps {
 }
 
 export function RoomFormDialog({ open, onOpenChange, room, onSave, availableFeatures }: RoomFormDialogProps) {
-  const { floors } = useHotel();
+  const { floors, rooms } = useHotel();
 
   const form = useForm<RoomFormData & { id?: string }>({
     resolver: zodResolver(roomSchema),
     defaultValues: {
       name: '',
       type: 'Sencilla',
-      pricePerNight: 0,
+      pricePerNight: undefined,
       features: [],
       occupancyStart: null,
       occupancyEnd: null,
-      floorId: '',
+      floorId: floors[0]?.id || '',
       roomNumber: 1,
     },
     values: room ? {
@@ -78,6 +71,20 @@ export function RoomFormDialog({ open, onOpenChange, room, onSave, availableFeat
   const { watch, setValue } = form;
   const selectedFloorId = watch('floorId');
   const selectedFloor = floors.find((f) => f.id === selectedFloorId);
+  const currentRoomNumber = watch('roomNumber');
+
+  const maxRooms = selectedFloor?.cantidadCuartos ?? 20;
+  const takenNumbers = rooms
+    .filter((r) => r.floorId === selectedFloorId && r.id !== room?.id)
+    .map((r) => r.roomNumber);
+  const availableRoomNumbers = Array.from({ length: maxRooms }, (_, i) => i + 1)
+    .filter((n) => !takenNumbers.includes(n));
+
+  useEffect(() => {
+    if (selectedFloorId && !availableRoomNumbers.includes(currentRoomNumber)) {
+      setValue('roomNumber', availableRoomNumbers[0] ?? 1);
+    }
+  }, [selectedFloorId, availableRoomNumbers, currentRoomNumber, setValue]);
 
   const handleSubmit = (data: RoomFormData & { id?: string }) => {
     onSave(data);
@@ -162,15 +169,23 @@ export function RoomFormDialog({ open, onOpenChange, room, onSave, availableFeat
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Número de Cuarto</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={selectedFloor?.cantidadCuartos ?? 20}
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                      />
-                    </FormControl>
+                    <Select
+                      value={String(field.value)}
+                      onValueChange={(v) => field.onChange(parseInt(v))}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableRoomNumbers.map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -233,62 +248,6 @@ export function RoomFormDialog({ open, onOpenChange, room, onSave, availableFeat
                 </FormItem>
               )}
             />
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Fecha Inicio Ocupación</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !watch('occupancyStart') && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {watch('occupancyStart') ? format(new Date(watch('occupancyStart')!), 'dd/MM/yyyy') : 'Seleccionar'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={watch('occupancyStart') ? new Date(watch('occupancyStart')!) : undefined}
-                      onSelect={(date) => setValue('occupancyStart', date ? format(date, 'yyyy-MM-dd') : null)}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Fecha Fin Ocupación</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !watch('occupancyEnd') && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {watch('occupancyEnd') ? format(new Date(watch('occupancyEnd')!), 'dd/MM/yyyy') : 'Seleccionar'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={watch('occupancyEnd') ? new Date(watch('occupancyEnd')!) : undefined}
-                      onSelect={(date) => setValue('occupancyEnd', date ? format(date, 'yyyy-MM-dd') : null)}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
