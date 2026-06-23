@@ -1,54 +1,57 @@
 -- ============================================================
--- HOTEL ROOM MANAGER - Datos de ejemplo
+-- HOTEL ROOM MANAGER - Datos de ejemplo (nuevo esquema PMS)
 -- Pega esto en el SQL Editor de Supabase y da Run
 -- ============================================================
 
--- 1. QUITAMOS FK de user_id temporalmente para poder insertar
-ALTER TABLE pisos DROP CONSTRAINT IF EXISTS pisos_user_id_fkey;
-ALTER TABLE habitaciones DROP CONSTRAINT IF EXISTS habitaciones_user_id_fkey;
-ALTER TABLE clientes DROP CONSTRAINT IF EXISTS clientes_user_id_fkey;
-ALTER TABLE inventario DROP CONSTRAINT IF EXISTS inventario_user_id_fkey;
-
--- 2. PISOS (8 pisos)
-INSERT INTO pisos (id, name, cantidad_cuartos) VALUES
-  ('f-1', 'Piso 1', 8),
-  ('f-2', 'Piso 2', 8),
-  ('f-3', 'Piso 3', 8),
-  ('f-4', 'Piso 4', 8),
-  ('f-5', 'Piso 5', 8),
-  ('f-6', 'Piso 6', 8),
-  ('f-7', 'Piso 7', 8),
-  ('f-8', 'Piso 8', 8)
+-- Usamos un hotel fijo para los ejemplos
+WITH hotel AS (
+  INSERT INTO hoteles (id, nombre, direccion, telefono, email, ruc)
+  VALUES ('00000000-0000-0000-0000-000000000001', 'Hotel Paraíso', 'Av. Principal 123', '+51 1 234 5678', 'contacto@hotelparaiso.com', '20123456789')
+  ON CONFLICT (id) DO NOTHING
+  RETURNING id
+),
+tipos AS (
+  INSERT INTO tipos_habitacion (id, hotel_id, nombre, descripcion, capacidad, precio_base) VALUES
+    ('t1', (SELECT id FROM hotel), 'Sencilla', 'Habitación individual con baño privado', 1, 850),
+    ('t2', (SELECT id FROM hotel), 'Doble', 'Habitación para dos personas', 2, 1500),
+    ('t3', (SELECT id FROM hotel), 'Suite', 'Suite de lujo con jacuzzi y balcón', 4, 3200)
+  ON CONFLICT (id) DO NOTHING
+),
+pisos AS (
+  INSERT INTO pisos (id, hotel_id, nombre, cantidad_cuartos) VALUES
+    ('p1', (SELECT id FROM hotel), 'Piso 1', 8),
+    ('p2', (SELECT id FROM hotel), 'Piso 2', 8),
+    ('p3', (SELECT id FROM hotel), 'Piso 3', 8),
+    ('p4', (SELECT id FROM hotel), 'Piso 4', 8)
+  ON CONFLICT (id) DO NOTHING
+),
+habitaciones AS (
+  INSERT INTO habitaciones (id, hotel_id, tipo_habitacion_id, piso_id, numero, nombre, estado, precio_por_noche, caracteristicas) VALUES
+    ('h1', (SELECT id FROM hotel), 't1', 'p1', 101, '101', 'limpia', 850,   ARRAY['Wi-Fi', 'Aire Acondicionado', 'TV']),
+    ('h2', (SELECT id FROM hotel), 't2', 'p2', 205, '205', 'ocupada', 1500, ARRAY['Wi-Fi', 'Aire Acondicionado', 'Minibar', 'Vista al Mar']),
+    ('h3', (SELECT id FROM hotel), 't3', 'p3', 301, '301', 'ocupada', 3200, ARRAY['Wi-Fi', 'Aire Acondicionado', 'Minibar', 'Vista al Mar', 'Jacuzzi', 'Balcón']),
+    ('h4', (SELECT id FROM hotel), 't1', 'p1', 102, '102', 'limpia', 750,   ARRAY['Wi-Fi', 'TV']),
+    ('h5', (SELECT id FROM hotel), 't2', 'p2', 208, '208', 'limpia', 1400,  ARRAY['Wi-Fi', 'Aire Acondicionado', 'Caja Fuerte'])
+  ON CONFLICT (id) DO NOTHING
+),
+huespedes AS (
+  INSERT INTO huespedes (id, hotel_id, nombre, apellido, tipo_documento, numero_documento, email, telefono, notas) VALUES
+    ('hu1', (SELECT id FROM hotel), 'María', 'García López', 'DNI', '12345678', 'maria@email.com', '+51 999 111 222', 'Cliente frecuente, prefiere habitación silenciosa'),
+    ('hu2', (SELECT id FROM hotel), 'Carlos', 'Mendoza Ruiz', 'DNI', '87654321', 'carlos@email.com', '+51 999 333 444', 'Solicitó cuna para bebé'),
+    ('hu3', (SELECT id FROM hotel), 'Ana', 'Torres Pérez', 'DNI', '45678901', 'ana@email.com', '+51 999 555 666', '')
+  ON CONFLICT (id) DO NOTHING
+),
+reservas AS (
+  INSERT INTO reservas (id, hotel_id, habitacion_id, huesped_id, fecha_checkin, fecha_checkout, estado, total) VALUES
+    ('r1', (SELECT id FROM hotel), 'h2', 'hu1', '2026-02-28', '2026-03-05', 'checked_in', 7500),
+    ('r2', (SELECT id FROM hotel), 'h3', 'hu2', '2026-03-01', '2026-03-10', 'checked_in', 28800)
+  ON CONFLICT (id) DO NOTHING
+)
+INSERT INTO inventario (id, hotel_id, nombre, cantidad, categoria, min_stock) VALUES
+  ('i1', (SELECT id FROM hotel), 'Toallas',          30, 'Blancos', 10),
+  ('i2', (SELECT id FROM hotel), 'Jabón de baño',    50, 'Aseo',   20),
+  ('i3', (SELECT id FROM hotel), 'Champú',            8, 'Aseo',   15),
+  ('i4', (SELECT id FROM hotel), 'Coca-Cola',        24, 'Minibar', 12),
+  ('i5', (SELECT id FROM hotel), 'Agua embotellada', 40, 'Minibar', 20),
+  ('i6', (SELECT id FROM hotel), 'Sábanas extra',    15, 'Blancos',  5)
 ON CONFLICT (id) DO NOTHING;
-
--- 3. HABITACIONES (5 habitaciones de ejemplo)
-INSERT INTO habitaciones (id, name, type, price_per_night, features, occupancy_start, occupancy_end, floor_id, room_number) VALUES
-  ('1', '101', 'Sencilla', 850,   ARRAY['Wi-Fi', 'Aire Acondicionado', 'TV'],                                            NULL,            NULL,           'f-1', 1),
-  ('2', '205', 'Doble',   1500,  ARRAY['Wi-Fi', 'Aire Acondicionado', 'Minibar', 'Vista al Mar'],                         '2026-02-28',    '2026-03-05',  'f-2', 2),
-  ('3', '301', 'Suite',   3200,  ARRAY['Wi-Fi', 'Aire Acondicionado', 'Minibar', 'Vista al Mar', 'Jacuzzi', 'Balcón'],    '2026-03-01',    '2026-03-10',  'f-3', 3),
-  ('4', '102', 'Sencilla', 750,  ARRAY['Wi-Fi', 'TV'],                                                                     '2026-02-20',    '2026-02-25',  'f-1', 2),
-  ('5', '208', 'Doble',   1400,  ARRAY['Wi-Fi', 'Aire Acondicionado', 'Caja Fuerte'],                                     NULL,            NULL,           'f-2', 3)
-ON CONFLICT (id) DO NOTHING;
-
--- 4. CLIENTES (3 clientes de ejemplo)
-INSERT INTO clientes (id, name, email, phone, id_number, assigned_room_id, check_in, check_out, notes) VALUES
-  ('c1', 'María García López',   'maria@email.com',  '+52 55 1234 5678', 'DNI 12345678A', '2', '2026-02-28', '2026-03-05', 'Cliente frecuente, prefiere habitación silenciosa'),
-  ('c2', 'Carlos Mendoza Ruiz',  'carlos@email.com', '+52 55 9876 5432', 'DNI 87654321B', '3', '2026-03-01', '2026-03-10', 'Solicitó cuna para bebé'),
-  ('c3', 'Ana Torres Pérez',     'ana@email.com',    '+52 55 4567 8901', 'DNI 45678901C', NULL, NULL,          NULL,         '')
-ON CONFLICT (id) DO NOTHING;
-
--- 5. INVENTARIO (6 artículos de ejemplo)
-INSERT INTO inventario (id, name, quantity, category, assigned_room_id, min_stock) VALUES
-  ('i1', 'Toallas',           30, 'Blancos',    NULL, 10),
-  ('i2', 'Jabón de baño',     50, 'Aseo',       NULL, 20),
-  ('i3', 'Champú',             8, 'Aseo',       NULL, 15),
-  ('i4', 'Coca-Cola',         24, 'Minibar',    NULL, 12),
-  ('i5', 'Agua embotellada',  40, 'Minibar',    NULL, 20),
-  ('i6', 'Sábanas extra',     15, 'Blancos',    NULL,  5)
-ON CONFLICT (id) DO NOTHING;
-
--- 6. RESTAURAMOS FK de user_id
-ALTER TABLE pisos ADD CONSTRAINT pisos_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE habitaciones ADD CONSTRAINT habitaciones_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE clientes ADD CONSTRAINT clientes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-ALTER TABLE inventario ADD CONSTRAINT inventario_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
