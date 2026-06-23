@@ -17,6 +17,16 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/hooks/use-toast';
 import type { Piso, Habitacion, Huesped, Inventario, Reserva } from '@/types/database';
 
+interface HotelData {
+  id: string;
+  nombre: string;
+  direccion: string | null;
+  telefono: string | null;
+  email: string | null;
+  ruc: string | null;
+  logo_url: string | null;
+}
+
 interface HotelContextValue {
   rooms: Room[];
   clients: Client[];
@@ -29,6 +39,9 @@ interface HotelContextValue {
   outOfStockItems: InventoryItem[];
   loading: boolean;
   hotelId: string | null;
+  hotelName: string;
+  hotelData: HotelData | null;
+  updateHotel: (data: Partial<HotelData>) => Promise<void>;
   addRoom: (data: Parameters<typeof createRoom>[0]) => Promise<void>;
   updateRoom: (id: string, data: Partial<Room>) => Promise<void>;
   deleteRoom: (id: string) => Promise<void>;
@@ -51,6 +64,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   const [availableFeatures, setAvailableFeatures] = useState<string[]>(AVAILABLE_FEATURES);
   const [loading, setLoading] = useState(true);
   const [hotelId, setHotelId] = useState<string | null>(null);
+  const [hotelData, setHotelData] = useState<HotelData | null>(null);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const { toast } = useToast();
 
@@ -105,13 +119,15 @@ export function HotelProvider({ children }: { children: ReactNode }) {
       }
 
       // Load all data in parallel
-      const [pisosRes, habitacionesRes, huespedesRes, inventarioRes, reservasRes] = await Promise.all([
+      const [hotelRes, pisosRes, habitacionesRes, huespedesRes, inventarioRes, reservasRes] = await Promise.all([
+        supabase.from('hoteles').select('*').eq('id', currentHotelId).single(),
         supabase.from('pisos').select('*').eq('hotel_id', currentHotelId),
         supabase.from('habitaciones').select('*').eq('hotel_id', currentHotelId),
         supabase.from('huespedes').select('*').eq('hotel_id', currentHotelId),
         supabase.from('inventario').select('*').eq('hotel_id', currentHotelId),
         supabase.from('reservas').select('*').eq('hotel_id', currentHotelId),
       ]);
+      if (hotelRes.data) setHotelData(hotelRes.data);
 
       // Map data to frontend types
       const mappedFloors = (pisosRes.data || []).map(pisoToFloor);
@@ -146,6 +162,7 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   }, [loadData]);
 
   // ── Computed values ──
+  const hotelName = hotelData?.nombre ?? 'Hotel';
   const lowStockItems = inventory.filter((i) => i.quantity <= i.minStock && i.quantity > 0);
   const outOfStockItems = inventory.filter((i) => i.quantity === 0);
 
@@ -405,7 +422,6 @@ export function HotelProvider({ children }: { children: ReactNode }) {
   const setFloors = useCallback((value: Floor[] | ((prev: Floor[]) => Floor[])) => {
     setFloorsState((prev) => {
       const next = typeof value === 'function' ? value(prev) : value;
-      // Sync to Supabase in background
       if (hotelId) {
         syncFloorsToSupabase(next, hotelId);
       }
@@ -413,13 +429,24 @@ export function HotelProvider({ children }: { children: ReactNode }) {
     });
   }, [hotelId]);
 
+  const updateHotel = useCallback(async (data: Partial<HotelData>) => {
+    if (!hotelId) return;
+    const { error } = await supabase.from('hoteles').update(data).eq('id', hotelId);
+    if (error) {
+      toast({ title: 'Error', description: 'No se pudo actualizar el hotel.', variant: 'destructive' });
+      return;
+    }
+    setHotelData((prev) => prev ? { ...prev, ...data } : prev);
+    toast({ title: 'Hotel actualizado', description: 'Los datos del hotel se guardaron correctamente.' });
+  }, [hotelId, toast]);
+
   return (
     <HotelContext.Provider value={{
       rooms, clients, inventory, floors,
       availableFeatures, setAvailableFeatures,
       setFloors,
       lowStockItems, outOfStockItems,
-      loading, hotelId,
+      loading, hotelId, hotelName, hotelData, updateHotel,
       addRoom, updateRoom, deleteRoom, toggleRoomStatus,
       addClient, updateClient, deleteClient,
       addInventoryItem, updateInventoryItem, deleteInventoryItem,

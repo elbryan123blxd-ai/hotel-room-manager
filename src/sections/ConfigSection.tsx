@@ -1,6 +1,7 @@
 import { FeaturesConfig } from '@/components/FeaturesConfig';
 import { FloorsConfig } from '@/components/FloorsConfig';
 import { MapEditor } from '@/components/MapEditor';
+import { HotelConfig } from '@/components/HotelConfig';
 import { useHotel } from '@/contexts/HotelContext';
 
 export function ConfigSection() {
@@ -10,6 +11,7 @@ export function ConfigSection() {
     <section key="config" className="animate-slide-up">
       <h2 className="font-display text-2xl font-bold text-foreground mb-6">Configuración</h2>
       <div className="space-y-6">
+        <HotelConfig />
         <FeaturesConfig features={availableFeatures} onFeaturesChange={setAvailableFeatures} />
         <FloorsConfig floors={floors} onFloorsChange={setFloors} />
         <MapEditor />
