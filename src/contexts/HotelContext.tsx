@@ -86,6 +86,8 @@ export function HotelProvider({ children }: { children: ReactNode }) {
         .eq('auth_user_id', user.id)
         .single();
 
+      let currentHotelId: string;
+
       if (!usuario) {
         // Create a default hotel for this user
         const { data: newHotel } = await supabase
@@ -94,28 +96,28 @@ export function HotelProvider({ children }: { children: ReactNode }) {
           .select()
           .single();
 
-        if (newHotel) {
-          // Create usuario record
-          await supabase.from('usuarios').insert({
-            auth_user_id: user.id,
-            hotel_id: newHotel.id,
-            nombre: user.email?.split('@')[0] || 'Admin',
-            email: user.email || '',
-            rol: 'admin',
-          });
-          setHotelId(newHotel.id);
-
-          // Seed sample data for the new hotel
-          await supabase.rpc('seed_hotel_data', { p_hotel_id: newHotel.id });
+        if (!newHotel) {
+          setLoading(false);
+          return;
         }
-      } else {
-        setHotelId(usuario.hotel_id);
-      }
 
-      const currentHotelId = usuario?.hotel_id;
-      if (!currentHotelId) {
-        setLoading(false);
-        return;
+        currentHotelId = newHotel.id;
+
+        // Create usuario record
+        await supabase.from('usuarios').insert({
+          auth_user_id: user.id,
+          hotel_id: currentHotelId,
+          nombre: user.email?.split('@')[0] || 'Admin',
+          email: user.email || '',
+          rol: 'admin',
+        });
+        setHotelId(currentHotelId);
+
+        // Seed sample data for the new hotel
+        await supabase.rpc('seed_hotel_data', { p_hotel_id: currentHotelId });
+      } else {
+        currentHotelId = usuario.hotel_id;
+        setHotelId(currentHotelId);
       }
 
       // Load all data in parallel
