@@ -30,8 +30,6 @@ export function HotelConfig() {
     setSaving(false);
   };
 
-  if (!hotelData) return null;
-
   return (
     <div className="rounded-lg border bg-card p-6">
       <div className="flex items-center gap-3 mb-4">

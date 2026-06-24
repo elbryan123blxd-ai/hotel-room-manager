@@ -433,12 +433,12 @@ export function HotelProvider({ children }: { children: ReactNode }) {
 
   const updateHotel = useCallback(async (data: Partial<HotelData>) => {
     if (!hotelId) return;
-    const { error } = await supabase.from('hoteles').update(data).eq('id', hotelId);
+    const { error } = await supabase.from('hoteles').upsert({ id: hotelId, ...data });
     if (error) {
       toast({ title: 'Error', description: 'No se pudo actualizar el hotel.', variant: 'destructive' });
       return;
     }
-    setHotelData((prev) => prev ? { ...prev, ...data } : prev);
+    setHotelData((prev) => prev ? { ...prev, ...data } : { id: hotelId, ...data } as HotelData);
     toast({ title: 'Hotel actualizado', description: 'Los datos del hotel se guardaron correctamente.' });
   }, [hotelId, toast]);
 
