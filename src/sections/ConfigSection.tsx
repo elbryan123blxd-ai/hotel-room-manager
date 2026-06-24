@@ -37,7 +37,7 @@ export function ConfigSection() {
     <section key="config" className="animate-slide-up">
       <h2 className="font-display text-2xl font-bold text-foreground mb-6">Configuración</h2>
       <div className="space-y-6">
-        <div className="rounded-lg border bg-card p-6">
+        <div className="rounded-lg border bg-card p-6" id="hotel-config">
           <div className="flex items-center gap-3 mb-4">
             <Building2 className="h-5 w-5 text-muted-foreground" />
             <h3 className="font-display text-lg font-semibold">Información del Hotel</h3>
