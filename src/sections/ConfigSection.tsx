@@ -39,8 +39,8 @@ export function ConfigSection() {
       <div className="space-y-6">
         <div className="rounded-lg border bg-card p-6" id="hotel-config">
           <div className="flex items-center gap-3 mb-4">
-            <Building2 className="h-5 w-5 text-muted-foreground" />
-            <h3 className="font-display text-lg font-semibold">Información del Hotel</h3>
+            <Building2 className="h-5 w-5 text-accent" />
+            <h3 className="font-display text-lg font-semibold">Información del Hotel ⚡</h3>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
